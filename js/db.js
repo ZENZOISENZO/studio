@@ -1,11 +1,94 @@
-// Livre de Quête — localStorage data layer
+// Livre de Quête — Supabase data layer
+//
+// Public functions (getProjects, addClient, etc.) keep their original
+// synchronous signatures so existing pages don't need to change. Data is
+// loaded once per page load into an in-memory cache via a single blocking
+// request (initDB, called at the bottom of this file), then every getter
+// reads from that cache. Writes update the cache immediately and push the
+// change to Supabase in the background.
 
-const DB_KEYS = {
-  projects: 'ldq_projects',
-  clients:  'ldq_clients',
-  invoices: 'ldq_invoices',
-  expenses: 'ldq_expenses',
-  quests:   'ldq_quests',
+const SUPABASE_URL = 'https://qvvqbsjuqszzfnsgjybp.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2dnFic2p1cXN6emZuc2dqeWJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MTE4NzMsImV4cCI6MjA5Njk4Nzg3M30.clA0MrqG1jWXpjCi2uxs--4nEWipnA8-y_3F9c4Flds'
+const SUPABASE_REST = SUPABASE_URL + '/rest/v1'
+
+const _cache = {
+  clients: [],
+  projects: [],
+  invoices: [],
+  expenses: [],
+  quests: [],
+  production: {},
+  app_state: {},
+}
+
+function _supaHeaders(extra) {
+  return Object.assign({
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+    'Content-Type': 'application/json',
+  }, extra)
+}
+
+function _supaFetch(path, opts) {
+  return fetch(SUPABASE_REST + '/' + path, Object.assign({}, opts, {
+    headers: _supaHeaders(opts && opts.headers),
+  })).catch(err => console.error('Supabase request failed:', path, err))
+}
+
+function _upsert(table, id, data) {
+  _supaFetch(table + '?on_conflict=id', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify([{ id, data }]),
+  })
+}
+
+function _remove(table, id) {
+  _supaFetch(table + '?id=eq.' + encodeURIComponent(id), { method: 'DELETE' })
+}
+
+function _upsertProd(projectId, data) {
+  _supaFetch('production?on_conflict=project_id', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify([{ project_id: projectId, data }]),
+  })
+}
+
+function _upsertState(key, value) {
+  _supaFetch('app_state?on_conflict=key', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify([{ key, value }]),
+  })
+}
+
+// Single blocking call made once at script-load time so that by the time
+// the page's own script runs, getProjects()/getClients()/etc. already have
+// data. Uses a synchronous XHR (deprecated, but the simplest way to keep
+// every existing page's code fully synchronous without a rewrite).
+function initDB() {
+  try {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', SUPABASE_REST + '/rpc/get_all_data', false)
+    const headers = _supaHeaders()
+    Object.keys(headers).forEach(k => xhr.setRequestHeader(k, headers[k]))
+    xhr.send('{}')
+    if (xhr.status >= 200 && xhr.status < 300) {
+      const data = JSON.parse(xhr.responseText)
+      _cache.clients    = (data.clients    || []).map(r => ({ ...r.data, id: r.id }))
+      _cache.projects   = (data.projects   || []).map(r => ({ ...r.data, id: r.id }))
+      _cache.invoices   = (data.invoices   || []).map(r => ({ ...r.data, id: r.id }))
+      _cache.expenses   = (data.expenses   || []).map(r => ({ ...r.data, id: r.id }))
+      _cache.quests     = (data.quests     || []).map(r => ({ ...r.data, id: r.id }))
+      _cache.production = data.production || {}
+      _cache.app_state  = data.app_state   || {}
+    } else {
+      console.error('Supabase initDB error', xhr.status, xhr.responseText)
+    }
+  } catch (e) {
+    console.error('Supabase initDB failed', e)
+  }
 }
 
 // ─── Currency ──────────────────────────────────────────────
@@ -40,59 +123,54 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
 }
 
-function _get(key) {
-  try { return JSON.parse(localStorage.getItem(key) || '[]') }
-  catch { return [] }
-}
-
-function _set(key, data) {
-  localStorage.setItem(key, JSON.stringify(data))
-}
-
 // ─── Projects ─────────────────────────────────────────────
-function getProjects() { return _get(DB_KEYS.projects) }
+function getProjects() { return _cache.projects }
 
 function addProject(p) {
-  const items = getProjects()
   const item = { ...p, id: uid(), createdAt: Date.now() }
-  items.unshift(item)
-  _set(DB_KEYS.projects, items)
+  _cache.projects.unshift(item)
+  _upsert('projects', item.id, item)
   return item
 }
 
 function updateProject(id, changes) {
-  _set(DB_KEYS.projects, getProjects().map(p => p.id === id ? { ...p, ...changes } : p))
+  _cache.projects = _cache.projects.map(p => p.id === id ? { ...p, ...changes } : p)
+  const item = getProjectById(id)
+  if (item) _upsert('projects', id, item)
 }
 
 function deleteProject(id) {
-  _set(DB_KEYS.projects, getProjects().filter(p => p.id !== id))
+  _cache.projects = _cache.projects.filter(p => p.id !== id)
+  _remove('projects', id)
 }
 
 function getProjectById(id) {
-  return getProjects().find(p => p.id === id) || null
+  return _cache.projects.find(p => p.id === id) || null
 }
 
 // ─── Clients ──────────────────────────────────────────────
-function getClients() { return _get(DB_KEYS.clients) }
+function getClients() { return _cache.clients }
 
 function addClient(c) {
-  const items = getClients()
   const item = { ...c, id: uid(), createdAt: Date.now() }
-  items.unshift(item)
-  _set(DB_KEYS.clients, items)
+  _cache.clients.unshift(item)
+  _upsert('clients', item.id, item)
   return item
 }
 
 function updateClient(id, changes) {
-  _set(DB_KEYS.clients, getClients().map(c => c.id === id ? { ...c, ...changes } : c))
+  _cache.clients = _cache.clients.map(c => c.id === id ? { ...c, ...changes } : c)
+  const item = getClientById(id)
+  if (item) _upsert('clients', id, item)
 }
 
 function deleteClient(id) {
-  _set(DB_KEYS.clients, getClients().filter(c => c.id !== id))
+  _cache.clients = _cache.clients.filter(c => c.id !== id)
+  _remove('clients', id)
 }
 
 function getClientById(id) {
-  return getClients().find(c => c.id === id) || null
+  return _cache.clients.find(c => c.id === id) || null
 }
 
 function getClientName(id) {
@@ -101,26 +179,28 @@ function getClientName(id) {
 }
 
 // ─── Invoices ─────────────────────────────────────────────
-function getInvoices() { return _get(DB_KEYS.invoices) }
+function getInvoices() { return _cache.invoices }
 
 function addInvoice(inv) {
-  const items = getInvoices()
   const item = { ...inv, id: uid(), createdAt: Date.now() }
-  items.unshift(item)
-  _set(DB_KEYS.invoices, items)
+  _cache.invoices.unshift(item)
+  _upsert('invoices', item.id, item)
   return item
 }
 
 function updateInvoice(id, changes) {
-  _set(DB_KEYS.invoices, getInvoices().map(i => i.id === id ? { ...i, ...changes } : i))
+  _cache.invoices = _cache.invoices.map(i => i.id === id ? { ...i, ...changes } : i)
+  const item = getInvoiceById(id)
+  if (item) _upsert('invoices', id, item)
 }
 
 function deleteInvoice(id) {
-  _set(DB_KEYS.invoices, getInvoices().filter(i => i.id !== id))
+  _cache.invoices = _cache.invoices.filter(i => i.id !== id)
+  _remove('invoices', id)
 }
 
 function getInvoiceById(id) {
-  return getInvoices().find(i => i.id === id) || null
+  return _cache.invoices.find(i => i.id === id) || null
 }
 
 // ─── Next invoice number ───────────────────────────────────
@@ -276,26 +356,28 @@ const EXPENSE_CATEGORIES = [
   { id: 'misc',          label: 'Miscellaneous',        color: '#3A3A3A' },
 ]
 
-function getExpenses() { return _get(DB_KEYS.expenses) }
+function getExpenses() { return _cache.expenses }
 
 function addExpense(e) {
-  const items = getExpenses()
   const item = { ...e, id: uid(), createdAt: Date.now() }
-  items.unshift(item)
-  _set(DB_KEYS.expenses, items)
+  _cache.expenses.unshift(item)
+  _upsert('expenses', item.id, item)
   return item
 }
 
 function updateExpense(id, changes) {
-  _set(DB_KEYS.expenses, getExpenses().map(e => e.id === id ? { ...e, ...changes } : e))
+  _cache.expenses = _cache.expenses.map(e => e.id === id ? { ...e, ...changes } : e)
+  const item = getExpenseById(id)
+  if (item) _upsert('expenses', id, item)
 }
 
 function deleteExpense(id) {
-  _set(DB_KEYS.expenses, getExpenses().filter(e => e.id !== id))
+  _cache.expenses = _cache.expenses.filter(e => e.id !== id)
+  _remove('expenses', id)
 }
 
 function getExpenseById(id) {
-  return getExpenses().find(e => e.id === id) || null
+  return _cache.expenses.find(e => e.id === id) || null
 }
 
 function getCurrentMonthExpenses() {
@@ -449,12 +531,12 @@ function getCalendarMonthEvents(year, month) {
 
 // ─── Production (tasks + estimate per project) ───────────
 function _getProd(projectId) {
-  try { return JSON.parse(localStorage.getItem('ldq_prod_' + projectId)) || { tasks: [], estimate: null } }
-  catch { return { tasks: [], estimate: null } }
+  return _cache.production[projectId] || { tasks: [], estimate: null }
 }
 
 function _saveProd(projectId, data) {
-  localStorage.setItem('ldq_prod_' + projectId, JSON.stringify(data))
+  _cache.production[projectId] = data
+  _upsertProd(projectId, data)
 }
 
 const TASK_CATEGORIES = [
@@ -558,43 +640,42 @@ function _currentPeriodKey(timeframe) {
 }
 
 function getQuests() {
-  const quests = _get(DB_KEYS.quests)
+  const quests = _cache.quests
   // Recurring quests reset automatically once their period (day/week/month) has passed
-  let changed = false
   quests.forEach(q => {
     if (q.repeat && q.done && q.lastCompleted &&
         _periodKey(q.lastCompleted, q.timeframe) !== _currentPeriodKey(q.timeframe)) {
       q.done = false
-      changed = true
+      _upsert('quests', q.id, q)
     }
   })
-  if (changed) _set(DB_KEYS.quests, quests)
   return quests
 }
 
 function addQuest(q) {
-  const items = getQuests()
   const item = { ...q, id: uid(), done: false, lastCompleted: null, createdAt: Date.now() }
-  items.unshift(item)
-  _set(DB_KEYS.quests, items)
+  _cache.quests.unshift(item)
+  _upsert('quests', item.id, item)
   return item
 }
 
 function updateQuest(id, changes) {
-  _set(DB_KEYS.quests, getQuests().map(q => q.id === id ? { ...q, ...changes } : q))
+  _cache.quests = _cache.quests.map(q => q.id === id ? { ...q, ...changes } : q)
+  const item = getQuestById(id)
+  if (item) _upsert('quests', id, item)
 }
 
 function deleteQuest(id) {
-  _set(DB_KEYS.quests, getQuests().filter(q => q.id !== id))
+  _cache.quests = _cache.quests.filter(q => q.id !== id)
+  _remove('quests', id)
 }
 
 function getQuestById(id) {
-  return getQuests().find(q => q.id === id) || null
+  return _cache.quests.find(q => q.id === id) || null
 }
 
 function toggleQuestDone(id) {
-  const quests = getQuests()
-  const q = quests.find(x => x.id === id)
+  const q = getQuestById(id)
   if (!q) return
   const xp = (QUEST_DIFFICULTIES.find(d => d.id === q.difficulty) || {}).xp || 0
   if (!q.done) {
@@ -605,20 +686,44 @@ function toggleQuestDone(id) {
     q.done = false
     addQuestXp(-xp)
   }
-  _set(DB_KEYS.quests, quests)
+  _upsert('quests', id, q)
 }
 
 function getQuestXp() {
-  return parseInt(localStorage.getItem('ldq_quest_xp') || '0')
+  return Number(_cache.app_state.quest_xp) || 0
 }
 
 function addQuestXp(delta) {
-  localStorage.setItem('ldq_quest_xp', String(Math.max(0, getQuestXp() + delta)))
+  const xp = Math.max(0, getQuestXp() + delta)
+  _cache.app_state.quest_xp = xp
+  _upsertState('quest_xp', xp)
+}
+
+// ─── Ranks ────────────────────────────────────────────────
+const RANKS = [
+  { id: 'rookie',     label: 'Rookie',     minLevel: 1,  color: 'var(--text-mid)' },
+  { id: 'adventurer', label: 'Adventurer', minLevel: 5,  color: 'var(--accent)' },
+  { id: 'veteran',    label: 'Veteran',    minLevel: 10, color: 'var(--warning)' },
+  { id: 'master',     label: 'Master',     minLevel: 20, color: 'var(--success)' },
+  { id: 'legend',     label: 'Legend',     minLevel: 35, color: 'var(--danger)' },
+]
+
+function getRank(level) {
+  let current = RANKS[0]
+  let next = null
+  for (let i = 0; i < RANKS.length; i++) {
+    if (level >= RANKS[i].minLevel) {
+      current = RANKS[i]
+      next = RANKS[i + 1] || null
+    }
+  }
+  return { ...current, next }
 }
 
 function getQuestLevel() {
   const xp = getQuestXp()
-  return { level: Math.floor(xp / 100) + 1, xp, xpIntoLevel: xp % 100, xpForNext: 100 }
+  const level = Math.floor(xp / 100) + 1
+  return { level, xp, xpIntoLevel: xp % 100, xpForNext: 100, rank: getRank(level) }
 }
 
 function getQuestStats() {
@@ -668,15 +773,11 @@ function showToast(msg, duration = 2200) {
 }
 
 // ─── Seed demo data ────────────────────────────────────────
-const SEED_VERSION = 'ldq_seed_v3'   // bump this to force re-seed
-
+// Only runs the very first time the database is genuinely empty — never
+// wipes existing data, so a missing flag can no longer cause data loss.
 function seedIfEmpty() {
-  if (localStorage.getItem(SEED_VERSION)) return
-  // Clear all data before re-seeding
-  _set(DB_KEYS.clients, [])
-  _set(DB_KEYS.projects, [])
-  _set(DB_KEYS.invoices, [])
-  _set(DB_KEYS.expenses, [])
+  if (_cache.clients.length || _cache.projects.length || _cache.invoices.length ||
+      _cache.expenses.length || _cache.quests.length) return
 
   const clients = [
     { id: 'c1', name: 'Yuki Tanaka',   company: 'Palladium Japan',  email: 'yuki@palladium.jp',    phone: '+81 90-1234-5678', location: 'Tokyo',   address: '〒107-0062 1-2-3 Minami-Aoyama, Minato-ku, Tokyo', notes: 'Campaign director, SS25.', createdAt: Date.now() - 9e7 },
@@ -685,7 +786,8 @@ function seedIfEmpty() {
     { id: 'c4', name: 'Sara Chen',     company: 'PeachyDen',        email: 'sara@peachyden.com',   phone: '+44 7700 123456',  location: 'London',  address: '45 Shoreditch High St, London E1 6PN, UK', notes: 'SS25 editorial.', createdAt: Date.now() - 3e7 },
     { id: 'c5', name: 'Kenji Ishida',  company: 'Maven Outdoors',   email: 'kenji@maven.co.jp',    phone: '+81 3-9012-3456',  location: 'Tokyo',   address: '2-4-1 Jingumae, Shibuya-ku, Tokyo', notes: 'Outdoor / lifestyle projects.', createdAt: Date.now() - 1.2e8 },
   ]
-  _set(DB_KEYS.clients, clients)
+  _cache.clients = clients
+  clients.forEach(c => _upsert('clients', c.id, c))
 
   const yr = new Date().getFullYear()
   const projects = [
@@ -696,7 +798,8 @@ function seedIfEmpty() {
     { id: 'p5', title: 'Maven Outdoor Series',        clientId: 'c5', type: 'photo', format: 'medium', status: 'delivered', date: `${yr}-01-14`, amount: 320000,  description: 'Outdoor lifestyle series.', createdAt: Date.now() - 1.1e8 },
     { id: 'p6', title: 'JOE Capsule Drop',            clientId: 'c4', type: 'photo', format: '35mm',   status: 'preprod',   date: `${yr}-05-20`, amount: 260000,  description: 'Capsule collection lookbook.', createdAt: Date.now() - 8e6 },
   ]
-  _set(DB_KEYS.projects, projects)
+  _cache.projects = projects
+  projects.forEach(p => _upsert('projects', p.id, p))
 
   const invoices = [
     { id: 'i1', number: `INV-${yr}-001`, clientId: 'c5', projectId: 'p5', type: 'invoice', status: 'paid',  amount: 320000, date: `${yr}-01-20`, dueDate: `${yr}-02-20`, items: [{ description: 'Maven Outdoor Series — Photography', qty: 1, price: 320000 }], createdAt: Date.now() - 1.05e8 },
@@ -706,7 +809,8 @@ function seedIfEmpty() {
     { id: 'i5', number: `INV-${yr}-004`, clientId: 'c3', projectId: 'p3', type: 'invoice', status: 'draft', amount: 950000, date: `${yr}-05-10`, dueDate: `${yr}-06-10`, items: [{ description: 'ASICS Tokyo — Video Production', qty: 1, price: 950000 }], createdAt: Date.now() - 1.2e7 },
     { id: 'i6', number: `QTE-${yr}-002`, clientId: 'c4', projectId: 'p6', type: 'quote',   status: 'draft', amount: 260000, date: `${yr}-05-18`, dueDate: `${yr}-05-25`, items: [{ description: 'JOE Capsule Drop — Photography', qty: 1, price: 260000 }], createdAt: Date.now() - 6e6 },
   ]
-  _set(DB_KEYS.invoices, invoices)
+  _cache.invoices = invoices
+  invoices.forEach(i => _upsert('invoices', i.id, i))
 
   const expenses = [
     { id: 'ex1',  date: `${yr}-01-08`, category: 'equipment',     description: 'Medium format kit rental — Maven shoot',     amount: 45000, projectId: 'p5', createdAt: Date.now() - 1.09e8 },
@@ -724,7 +828,8 @@ function seedIfEmpty() {
     { id: 'ex13', date: `${yr}-05-08`, category: 'travel',        description: 'Transport Tokyo logistics — ASICS',            amount: 18000, projectId: 'p3', createdAt: Date.now() - 1.4e7  },
     { id: 'ex14', date: `${yr}-05-15`, category: 'office',        description: 'Portfolio printing — client presentations',     amount: 12000, projectId: null, createdAt: Date.now() - 8e6   },
   ]
-  _set(DB_KEYS.expenses, expenses)
+  _cache.expenses = expenses
+  expenses.forEach(e => _upsert('expenses', e.id, e))
 
   const quests = [
     { id: 'q1', title: 'Reply to client emails',          difficulty: 'easy',   category: 'work',     timeframe: 'day',   repeat: true,  done: false, lastCompleted: null, createdAt: Date.now() - 9e7 },
@@ -736,7 +841,9 @@ function seedIfEmpty() {
     { id: 'q7', title: 'Pay studio rent',                  difficulty: 'medium', category: 'admin',    timeframe: 'month', repeat: true,  done: false, lastCompleted: null, createdAt: Date.now() - 3e7 },
     { id: 'q8', title: 'Update portfolio website',         difficulty: 'hard',   category: 'creative', timeframe: 'month', repeat: false, done: false, lastCompleted: null, createdAt: Date.now() - 2e7 },
   ]
-  _set(DB_KEYS.quests, quests)
-
-  localStorage.setItem(SEED_VERSION, '1')
+  _cache.quests = quests
+  quests.forEach(q => _upsert('quests', q.id, q))
 }
+
+// Bootstrap: populate the cache before any page script runs.
+initDB()

@@ -542,14 +542,19 @@
     @media print {
       @page { margin: 12mm; }
 
+      * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
       body {
         background: white;
         color: black;
         padding: 0;
         font-size: 12px;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
       }
+
+      .inv-wrap { max-width: none; width: 100%; }
 
       .inv-ctrl { display: none !important; }
 

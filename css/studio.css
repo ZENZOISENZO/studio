@@ -1383,6 +1383,13 @@ tr.row-overdue:hover td { opacity: 0.85; }
   color: var(--text-dim);
 }
 
+.level-next-rank {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
 .quest-section-progress {
   font-family: 'VT323', monospace;
   font-size: 16px;

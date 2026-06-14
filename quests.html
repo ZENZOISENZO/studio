@@ -73,14 +73,16 @@
       <!-- Stats row -->
       <div class="stats-grid" style="margin-bottom:24px">
         <div class="stat-card level-card">
-          <div class="stat-label">Adventurer Level</div>
+          <div class="stat-label">Rank</div>
           <div class="level-value">
             <span class="stat-value accent" id="quest-level">LV. 1</span>
+            <span class="badge" id="quest-rank">Rookie</span>
           </div>
           <div class="progress-track">
             <div class="progress-fill" id="quest-xp-bar" style="width:0%"></div>
           </div>
           <div class="level-xp" id="quest-xp-label">0 / 100 XP</div>
+          <div class="level-next-rank" id="quest-next-rank"></div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Today</div>
@@ -279,6 +281,14 @@
       document.getElementById('quest-xp-bar').style.width   = lvl.xpIntoLevel + '%'
       document.getElementById('quest-xp-label').textContent = `${lvl.xpIntoLevel} / ${lvl.xpForNext} XP`
 
+      const rankEl = document.getElementById('quest-rank')
+      rankEl.textContent = lvl.rank.label
+      rankEl.style.color = lvl.rank.color
+
+      document.getElementById('quest-next-rank').textContent = lvl.rank.next
+        ? `${lvl.rank.next.label} at Lv. ${lvl.rank.next.minLevel}`
+        : 'Max rank reached'
+
       const stats = getQuestStats()
       document.getElementById('stat-day').textContent   = `${stats.day.done} / ${stats.day.total}`
       document.getElementById('stat-week').textContent  = `${stats.week.done} / ${stats.week.total}`
@@ -286,7 +296,7 @@
 
       const active = stats.total - stats.done
       document.getElementById('quest-subtitle').textContent =
-        `${active} active quest${active !== 1 ? 's' : ''} · Level ${lvl.level}`
+        `${active} active quest${active !== 1 ? 's' : ''} · ${lvl.rank.label} · Level ${lvl.level}`
 
       renderLists()
     }
