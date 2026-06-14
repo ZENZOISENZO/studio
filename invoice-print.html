@@ -208,6 +208,12 @@
     .inv-edit-input.td-r, select.inv-edit-select { text-align: right; }
     .inv-edit-textarea { resize: vertical; min-height: 50px; line-height: 1.6; }
 
+    .inv-tax-input {
+      width: 3.5em;
+      text-align: right;
+      margin: 0 0.15em;
+    }
+
     .inv-items tbody td.td-action {
       width: 36px;
       padding: 15px 12px;
@@ -687,10 +693,11 @@
 
     function emptyItem() { return { description: '', qty: 1, price: 0 } }
 
-    function calcTotals(items) {
+    function calcTotals(items, taxRate) {
+      const rate = taxRate != null ? Number(taxRate) || 0 : 10
       const subtotal = items.reduce((s, it) => s + ((Number(it.qty) || 1) * (Number(it.price) || 0)), 0)
-      const tax = Math.round(subtotal * 0.1)
-      return { subtotal, tax, total: subtotal + tax }
+      const tax = Math.round(subtotal * (rate / 100))
+      return { subtotal, tax, total: subtotal + tax, rate }
     }
 
     if (!id) {
@@ -744,6 +751,7 @@
         dueDate: currentInv.dueDate || '',
         status:  currentInv.status  || 'draft',
         notes:   currentInv.notes   || '',
+        taxRate: currentInv.taxRate != null ? Number(currentInv.taxRate) : 10,
         items:   items.length > 0 ? items.map(it => ({ description: it.description, qty: Number(it.qty) || 1, price: Number(it.price) || 0 })) : [emptyItem()],
       }
       editMode = true
@@ -770,8 +778,9 @@
         dueDate: editState.dueDate || null,
         status:  editState.status,
         notes:   editState.notes.trim(),
+        taxRate: Number(editState.taxRate) || 0,
         items,
-        amount: items.length > 0 ? calcTotals(items).subtotal : (Number(currentInv.amount) || 0),
+        amount: items.length > 0 ? calcTotals(items, editState.taxRate).subtotal : (Number(currentInv.amount) || 0),
       }
 
       updateInvoice(id, changes)
@@ -795,10 +804,15 @@
     }
 
     function updateTotalsDisplay() {
-      const { subtotal, tax, total } = calcTotals(editState.items)
+      const { subtotal, tax, total } = calcTotals(editState.items, editState.taxRate)
       document.getElementById('tot-subtotal').textContent = fmtMoney(subtotal)
       document.getElementById('tot-tax').textContent      = fmtMoney(tax)
       document.getElementById('tot-total').textContent    = fmtMoney(total)
+    }
+
+    function updateTaxRate(value) {
+      editState.taxRate = value === '' ? 0 : Number(value)
+      updateTotalsDisplay()
     }
 
     function addItemRow() {
@@ -817,14 +831,15 @@
       const project = getProjectById(inv.projectId) || {}
       const items   = (Array.isArray(inv.items) ? inv.items : []).filter(it => it.description && it.description.trim())
 
-      let subtotal, tax, total
+      let subtotal, tax, total, taxRate
       if (editMode) {
-        ({ subtotal, tax, total } = calcTotals(editState.items))
+        ({ subtotal, tax, total, rate: taxRate } = calcTotals(editState.items, editState.taxRate))
       } else if (items.length > 0) {
-        ({ subtotal, tax, total } = calcTotals(items))
+        ({ subtotal, tax, total, rate: taxRate } = calcTotals(items, inv.taxRate))
       } else {
+        taxRate  = inv.taxRate != null ? Number(inv.taxRate) : 10
         subtotal = Number(inv.amount) || 0
-        tax      = Math.round(subtotal * 0.1)
+        tax      = Math.round(subtotal * (taxRate / 100))
         total    = subtotal + tax
       }
 
@@ -986,7 +1001,9 @@
             <span class="inv-tot-amt" id="tot-subtotal">${fmtMoney(subtotal)}</span>
           </div>
           <div class="inv-tot-row">
-            <span class="inv-tot-lbl">Consumption Tax · 消費税 10%</span>
+            <span class="inv-tot-lbl">Consumption Tax · 消費税 ${editMode
+              ? `<input class="inv-tax-input" type="number" min="0" max="100" step="0.1" value="${editState.taxRate}" oninput="updateTaxRate(this.value)">`
+              : taxRate}%</span>
             <span class="inv-tot-amt" id="tot-tax">${fmtMoney(tax)}</span>
           </div>
           <div class="inv-tot-final">
