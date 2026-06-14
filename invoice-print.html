@@ -687,6 +687,34 @@
       return { JPY:'¥', EUR:'€', USD:'$', GBP:'£', KRW:'₩', CNY:'¥' }[code] || code
     }
 
+    function linesToHtml(text) {
+      return (text || '').split('\n').map(l => l.trim()).filter(Boolean).map(escHtml).join('<br>')
+    }
+
+    function renderPaymentGrid(text) {
+      return (text || '').split('\n').map(l => l.trim()).filter(Boolean).map(line => {
+        const idx = line.indexOf(':')
+        if (idx === -1) return `<span class="inv-pay-val" style="grid-column:1 / -1">${escHtml(line)}</span>`
+        const key = line.slice(0, idx).trim()
+        const val = line.slice(idx + 1).trim()
+        return `<span class="inv-pay-key">${escHtml(key)}</span><span class="inv-pay-val">${escHtml(val)}</span>`
+      }).join('')
+    }
+
+    const DEFAULT_FROM_NAME    = 'Enzo Piquet'
+    const DEFAULT_FROM_INFO    = '〒153-0053\n東京都目黒区五本木1-2-5\n五本木フラット301\n070-9020-0972\nenzopiquet93@gmail.com'
+    const DEFAULT_PAYMENT_INFO = 'Bank · 銀行: ゆうちょ銀行\nBranch · 支店: 荻窪店 138\nAccount · 口座番号: 1423655\nName · 口座名義: ピケ エンゾネルソンアレクサンドル'
+
+    function billedToInfoDefault(client) {
+      return [
+        client.company,
+        ...(client.address ? client.address.split('\n').map(l => l.trim()).filter(Boolean) : []),
+        client.location,
+        client.phone,
+        client.name,
+      ].filter(Boolean).join('\n')
+    }
+
     let currentInv = null
     let editMode   = false
     let editState  = null
@@ -745,13 +773,19 @@
     }
 
     function enterEdit() {
-      const items = (Array.isArray(currentInv.items) ? currentInv.items : []).filter(it => it.description && it.description.trim())
+      const items  = (Array.isArray(currentInv.items) ? currentInv.items : []).filter(it => it.description && it.description.trim())
+      const client = getClientById(currentInv.clientId) || {}
       editState = {
         number:  currentInv.number  || '',
         dueDate: currentInv.dueDate || '',
         status:  currentInv.status  || 'draft',
         notes:   currentInv.notes   || '',
         taxRate: currentInv.taxRate != null ? Number(currentInv.taxRate) : 10,
+        billedToName: currentInv.billedToName != null ? currentInv.billedToName : (client.company || client.name || ''),
+        billedToInfo: currentInv.billedToInfo != null ? currentInv.billedToInfo : billedToInfoDefault(client),
+        fromName:     currentInv.fromName     != null ? currentInv.fromName     : DEFAULT_FROM_NAME,
+        fromInfo:     currentInv.fromInfo     != null ? currentInv.fromInfo     : DEFAULT_FROM_INFO,
+        paymentInfo:  currentInv.paymentInfo  != null ? currentInv.paymentInfo  : DEFAULT_PAYMENT_INFO,
         items:   items.length > 0 ? items.map(it => ({ description: it.description, qty: Number(it.qty) || 1, price: Number(it.price) || 0 })) : [emptyItem()],
       }
       editMode = true
@@ -779,6 +813,11 @@
         status:  editState.status,
         notes:   editState.notes.trim(),
         taxRate: Number(editState.taxRate) || 0,
+        billedToName: editState.billedToName.trim(),
+        billedToInfo: editState.billedToInfo.trim(),
+        fromName:     editState.fromName.trim(),
+        fromInfo:     editState.fromInfo.trim(),
+        paymentInfo:  editState.paymentInfo.trim(),
         items,
         amount: items.length > 0 ? calcTotals(items, editState.taxRate).subtotal : (Number(currentInv.amount) || 0),
       }
@@ -847,17 +886,30 @@
       const prodDate = project.date ? fmtD(project.date) : fmtD(inv.date)
       const jobName  = project.title || (inv.number || '—')
 
-      // Client address lines
-      const addrLines = [
-          client.company,
-          ...(client.address ? client.address.split('\n').map(l => l.trim()).filter(Boolean) : []),
-          client.location,
-          client.phone,
-          client.name,
-        ]
-        .filter(Boolean)
-        .map(l => escHtml(l))
-        .join('<br>')
+      // Billed To / From / Payment info (per-invoice overrides, falling back to defaults)
+      const billedToName = editMode ? editState.billedToName : (inv.billedToName != null ? inv.billedToName : (client.company || client.name || ''))
+      const billedToInfo = editMode ? editState.billedToInfo : (inv.billedToInfo != null ? inv.billedToInfo : billedToInfoDefault(client))
+      const fromName     = editMode ? editState.fromName     : (inv.fromName     != null ? inv.fromName     : DEFAULT_FROM_NAME)
+      const fromInfo     = editMode ? editState.fromInfo     : (inv.fromInfo     != null ? inv.fromInfo     : DEFAULT_FROM_INFO)
+      const paymentInfo  = editMode ? editState.paymentInfo  : (inv.paymentInfo  != null ? inv.paymentInfo  : DEFAULT_PAYMENT_INFO)
+
+      const billedToNameHtml = editMode
+        ? `<input type="text" class="inv-edit-input inv-party-name" value="${escHtml(billedToName)}" placeholder="Client name" oninput="editState.billedToName=this.value">`
+        : escHtml(billedToName || '—')
+      const billedToInfoHtml = editMode
+        ? `<textarea class="inv-edit-textarea inv-party-info" placeholder="Address, contact info…" oninput="editState.billedToInfo=this.value">${escHtml(billedToInfo)}</textarea>`
+        : (linesToHtml(billedToInfo) || '<span style="color:var(--text-dim)">—</span>')
+
+      const fromNameHtml = editMode
+        ? `<input type="text" class="inv-edit-input inv-party-name" value="${escHtml(fromName)}" placeholder="Your name" oninput="editState.fromName=this.value">`
+        : escHtml(fromName || '—')
+      const fromInfoHtml = editMode
+        ? `<textarea class="inv-edit-textarea inv-party-info" placeholder="Address, contact info…" oninput="editState.fromInfo=this.value">${escHtml(fromInfo)}</textarea>`
+        : (linesToHtml(fromInfo) || '<span style="color:var(--text-dim)">—</span>')
+
+      const paymentInfoHtml = editMode
+        ? `<textarea class="inv-edit-textarea" placeholder="Bank · 銀行: …&#10;Branch · 支店: …" oninput="editState.paymentInfo=this.value">${escHtml(paymentInfo)}</textarea>`
+        : (renderPaymentGrid(paymentInfo) || '<span class="inv-pay-val" style="color:var(--text-dim)">—</span>')
 
       // Invoice number field
       const numberHtml = editMode
@@ -966,19 +1018,13 @@
         <div class="inv-parties">
           <div class="inv-party">
             <div class="inv-party-lbl">Billed To · 請求先</div>
-            <div class="inv-party-name">${escHtml(client.company || client.name || '—')}</div>
-            <div class="inv-party-info">${addrLines || '<span style="color:var(--text-dim)">—</span>'}</div>
+            ${editMode ? billedToNameHtml : `<div class="inv-party-name">${billedToNameHtml}</div>`}
+            ${editMode ? billedToInfoHtml : `<div class="inv-party-info">${billedToInfoHtml}</div>`}
           </div>
           <div class="inv-party">
             <div class="inv-party-lbl">From · 発行者</div>
-            <div class="inv-party-name">Enzo Piquet</div>
-            <div class="inv-party-info">
-              〒153-0053<br>
-              東京都目黒区五本木1-2-5<br>
-              五本木フラット301<br>
-              070-9020-0972<br>
-              enzopiquet93@gmail.com
-            </div>
+            ${editMode ? fromNameHtml : `<div class="inv-party-name">${fromNameHtml}</div>`}
+            ${editMode ? fromInfoHtml : `<div class="inv-party-info">${fromInfoHtml}</div>`}
           </div>
         </div>
 
@@ -1016,18 +1062,9 @@
 
         <!-- Payment info -->
         <div class="inv-payment">
-          <div>
+          <div style="${editMode ? 'flex:1' : ''}">
             <div class="inv-pay-lbl">Payment Information · 支払い情報</div>
-            <div class="inv-pay-grid">
-              <span class="inv-pay-key">Bank · 銀行</span>
-              <span class="inv-pay-val">ゆうちょ銀行</span>
-              <span class="inv-pay-key">Branch · 支店</span>
-              <span class="inv-pay-val">荻窪店 138</span>
-              <span class="inv-pay-key">Account · 口座番号</span>
-              <span class="inv-pay-val">1423655</span>
-              <span class="inv-pay-key">Name · 口座名義</span>
-              <span class="inv-pay-val">ピケ エンゾネルソンアレクサンドル</span>
-            </div>
+            ${editMode ? paymentInfoHtml : `<div class="inv-pay-grid">${paymentInfoHtml}</div>`}
           </div>
           <div class="inv-thanks">お取引ありがとうございます</div>
         </div>
