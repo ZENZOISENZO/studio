@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var t = localStorage.getItem('ldq_theme') || 'dark'
+      document.documentElement.setAttribute('data-theme', t)
+    })()
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Livre de Quête — Production</title>
+  <link rel="stylesheet" href="css/studio.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-name">LIVRE DE QUÊTE</div>
+      <div class="sidebar-logo-sub">Enzo Piquet — Studio</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html">Dashboard</a>
+      <a href="projects.html">Projects <span class="nav-count" id="count-projects">0</span></a>
+      <a href="clients.html">Clients <span class="nav-count" id="count-clients">0</span></a>
+      <a href="invoices.html">Invoices <span class="nav-count" id="count-invoices">0</span></a>
+      <a href="revenue.html">Revenue</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="calendar.html">Calendar</a>
+      <a href="production.html" class="active">Production</a>
+      <a href="quests.html">Quests <span class="nav-count" id="count-quests">0</span></a>
+    </nav>
+    <div class="currency-wrap">
+      <span class="currency-label">Currency</span>
+      <select class="currency-select" id="currency-select" onchange="setCurrencyAndRefresh(this.value)">
+        <option value="JPY">¥ JPY</option>
+        <option value="EUR">€ EUR</option>
+        <option value="USD">$ USD</option>
+        <option value="GBP">£ GBP</option>
+        <option value="KRW">₩ KRW</option>
+        <option value="CNY">¥ CNY</option>
+      </select>
+    </div>
+    <div class="theme-wrap">
+      <span class="currency-label">Theme</span>
+      <div class="theme-toggle">
+        <button class="theme-btn" id="theme-btn-dark" onclick="setThemeAndRefresh('dark')">Dark</button>
+        <button class="theme-btn" id="theme-btn-light" onclick="setThemeAndRefresh('light')">Light</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <a href="../index.html">← Portfolio</a>
+      <p class="copyright">© 2025 Enzo Piquet</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="studio-main">
+
+    <!-- ─── No project selected ─────────────────────────── -->
+    <div id="no-project" style="display:none">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Production</h1>
+          <p class="page-subtitle">Select a project to manage its production</p>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="section-block">
+          <div class="section-block-header">
+            <span class="section-block-title">All Projects</span>
+            <a href="projects.html" class="section-block-link">Manage projects →</a>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Client</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Tasks</th>
+              </tr>
+            </thead>
+            <tbody id="proj-select-tbody"></tbody>
+          </table>
+          <div id="proj-select-empty" class="empty-state hidden">
+            <div class="empty-state-icon">[  ]</div>
+            <div class="empty-state-title">No projects yet</div>
+            <div class="empty-state-sub"><a href="projects.html">Create your first project</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Production view ─────────────────────────────── -->
+    <div id="prod-view" style="display:none">
+
+      <!-- Project header -->
+      <div class="prod-header">
+        <div class="prod-breadcrumb">
+          <a href="projects.html" class="prod-back">← Projects</a>
+          <span class="prod-breadcrumb-sep">/</span>
+          <span class="prod-breadcrumb-cur" id="prod-type-label">—</span>
+        </div>
+        <div class="prod-project-info">
+          <div class="prod-project-title" id="prod-title">—</div>
+          <div class="prod-project-meta">
+            <span id="prod-client">—</span>
+            <span class="prod-meta-sep">·</span>
+            <span id="prod-status-badge"></span>
+            <span class="prod-meta-sep">·</span>
+            <span id="prod-format">—</span>
+            <span class="prod-meta-sep">·</span>
+            <span id="prod-date">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab switcher -->
+      <div class="prod-tab-bar">
+        <button class="prod-tab active" id="tab-btn-tasks" onclick="switchTab('tasks')">
+          Tasks <span class="prod-tab-count" id="tab-count-tasks">0</span>
+        </button>
+        <button class="prod-tab" id="tab-btn-estimate" onclick="switchTab('estimate')">
+          Estimate
+        </button>
+      </div>
+
+      <!-- ─── TASKS TAB ─────────────────────── -->
+      <div id="tab-tasks" class="page-content">
+
+        <div class="task-progress-block">
+          <div class="task-progress-label">
+            <span id="tasks-done-count">0</span> / <span id="tasks-total-count">0</span> tasks complete
+            <span id="tasks-pct" style="margin-left:14px;color:var(--text-dim)">0%</span>
+          </div>
+          <div class="task-progress-track">
+            <div class="task-progress-fill" id="tasks-progress-bar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="task-controls">
+          <div style="display:flex;gap:0;border:1px solid var(--border)">
+            <button class="filter-btn active" data-tfilter="all" onclick="setTaskFilter('all',this)" style="border-right:1px solid var(--border)">All</button>
+            <button class="filter-btn" data-tfilter="todo" onclick="setTaskFilter('todo',this)" style="border-right:1px solid var(--border)">To Do</button>
+            <button class="filter-btn" data-tfilter="inprogress" onclick="setTaskFilter('inprogress',this)" style="border-right:1px solid var(--border)">In Progress</button>
+            <button class="filter-btn" data-tfilter="done" onclick="setTaskFilter('done',this)">Done</button>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openTaskModal()">+ Add task</button>
+        </div>
+
+        <div id="tasks-list"></div>
+
+        <div id="tasks-empty" class="empty-state hidden">
+          <div class="empty-state-icon">[  ]</div>
+          <div class="empty-state-title">No tasks yet</div>
+          <div class="empty-state-sub">Build your pre-production checklist</div>
+        </div>
+
+      </div>
+
+      <!-- ─── ESTIMATE TAB ──────────────────── -->
+      <div id="tab-estimate" class="page-content" style="display:none">
+
+        <div class="estimate-header-block">
+          <div class="estimate-header-info">
+            <div class="estimate-header-title">Production Estimate</div>
+            <div class="estimate-header-meta">
+              <span id="est-project-name">—</span>
+              <span class="prod-meta-sep">·</span>
+              <span id="est-client-name">—</span>
+              <span class="prod-meta-sep">·</span>
+              <span id="est-date">—</span>
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="window.print()">⎙ Print</button>
+        </div>
+
+        <div id="estimate-sections"></div>
+
+        <div style="padding:4px 0 20px">
+          <button class="btn btn-ghost btn-sm" onclick="addEstimateSection()">+ Add section</button>
+        </div>
+
+        <!-- Grand totals -->
+        <div class="estimate-totals">
+          <div class="estimate-total-row">
+            <span class="estimate-total-label">Subtotal</span>
+            <span class="estimate-total-value font-vt" id="est-subtotal">—</span>
+          </div>
+          <div class="estimate-total-row">
+            <span class="estimate-total-label">
+              Agency Fee
+              <input type="number" id="est-markup" class="est-markup-input" value="15" min="0" max="200"
+                oninput="updateMarkup(parseFloat(this.value)||0)">
+              %
+            </span>
+            <span class="estimate-total-value font-vt" id="est-fee">—</span>
+          </div>
+          <div class="estimate-total-row estimate-grand">
+            <span class="estimate-total-label">Total</span>
+            <span class="estimate-total-value font-vt" id="est-grand">—</span>
+          </div>
+          <div class="estimate-notes-row">
+            <label class="form-label" style="margin-bottom:6px;display:block">Notes / Terms</label>
+            <textarea class="form-textarea" id="est-notes" placeholder="Payment terms, validity period, conditions…"
+              oninput="updateEstimateNotes(this.value)"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Task Modal -->
+  <div class="modal-overlay" id="task-modal-overlay" onclick="handleTaskOverlayClick(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="task-modal-title">New task</span>
+        <button class="modal-close" onclick="closeTaskModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="task-edit-id">
+        <div class="form-group">
+          <label class="form-label">Task *</label>
+          <input type="text" class="form-input" id="task-f-title" placeholder="What needs to be done?">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-select" id="task-f-cat">
+              <option value="admin">Admin & Contracts</option>
+              <option value="preprod">Pre-Production</option>
+              <option value="equipment">Equipment</option>
+              <option value="location">Location</option>
+              <option value="cast">Cast & Crew</option>
+              <option value="post">Post-Production</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="task-f-status">
+              <option value="todo">To Do</option>
+              <option value="inprogress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due date</label>
+          <input type="date" class="form-input" id="task-f-due">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="task-f-notes" placeholder="Details, references, links…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="task-btn-delete" onclick="deleteCurrentTask()" style="display:none">Delete</button>
+        <div class="modal-footer-right">
+          <button class="btn btn-secondary" onclick="closeTaskModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveTask()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script>
+    seedIfEmpty()
+
+    function setThemeAndRefresh(theme) {
+      setTheme(theme)
+      updateThemeButtons()
+    }
+
+    function updateThemeButtons() {
+      const t = getTheme()
+      document.getElementById('theme-btn-dark').classList.toggle('active', t === 'dark')
+      document.getElementById('theme-btn-light').classList.toggle('active', t === 'light')
+    }
+    updateThemeButtons()
+
+    document.getElementById('currency-select').value = getCurrency()
+    document.getElementById('count-projects').textContent = getProjects().length
+    document.getElementById('count-clients').textContent  = getClients().length
+    document.getElementById('count-invoices').textContent = getInvoices().length
+    document.getElementById('count-quests').textContent = getQuests().filter(q => !q.done).length
+
+    // ─── Read project from URL ───────────────────────────
+    const params    = new URLSearchParams(location.search)
+    const projectId = params.get('id')
+
+    const statusLabels = {
+      brief: 'Brief', preprod: 'Pre-prod', shooting: 'Shooting',
+      post: 'Post-prod', delivered: 'Delivered', archived: 'Archived',
+    }
+    const typeLabels = {
+      photo: 'Photo', video: 'Video', hybrid: 'Photo+Video',
+      model: 'Model', producer: 'Producer', casting: 'Casting Director',
+    }
+
+    let project = null
+    if (projectId) project = getProjectById(projectId)
+
+    if (!project) {
+      document.getElementById('no-project').style.display = ''
+      renderProjectSelector()
+    } else {
+      document.getElementById('prod-view').style.display = ''
+      initProductionView()
+    }
+
+    // ─── Project selector ────────────────────────────────
+    function renderProjectSelector() {
+      const projects = getProjects()
+      const tbody = document.getElementById('proj-select-tbody')
+      const empty = document.getElementById('proj-select-empty')
+
+      if (projects.length === 0) {
+        tbody.innerHTML = ''
+        empty.classList.remove('hidden')
+        return
+      }
+
+      empty.classList.add('hidden')
+      tbody.innerHTML = projects.map(p => {
+        const tasks = getTasks(p.id)
+        const done  = tasks.filter(t => t.status === 'done').length
+        const taskStr = tasks.length === 0
+          ? '<span style="color:var(--text-dim)">—</span>'
+          : `<span class="font-vt" style="font-size:18px">${done}/${tasks.length}</span>`
+        return `
+          <tr onclick="location.href='production.html?id=${p.id}'" style="cursor:pointer">
+            <td class="td-main">${p.title}</td>
+            <td>${getClientName(p.clientId)}</td>
+            <td><span class="badge badge-${p.status}">${statusLabels[p.status] || p.status}</span></td>
+            <td>${fmtDate(p.date)}</td>
+            <td>${taskStr}</td>
+          </tr>`
+      }).join('')
+    }
+
+    // ─── Production view init ────────────────────────────
+    function initProductionView() {
+      document.title = `Livre de Quête — ${project.title}`
+
+      document.getElementById('prod-title').textContent      = project.title
+      document.getElementById('prod-client').textContent     = getClientName(project.clientId)
+      document.getElementById('prod-type-label').textContent = typeLabels[project.type] || project.type
+      document.getElementById('prod-format').textContent     = project.format || '—'
+      document.getElementById('prod-date').textContent       = fmtDate(project.date)
+      document.getElementById('prod-status-badge').innerHTML =
+        `<span class="badge badge-${project.status}">${statusLabels[project.status] || project.status}</span>`
+
+      document.getElementById('est-project-name').textContent = project.title
+      document.getElementById('est-client-name').textContent  = getClientName(project.clientId)
+      document.getElementById('est-date').textContent         =
+        new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+      renderTasks()
+      renderEstimate()
+    }
+
+    // ─── Tab switching ────────────────────────────────────
+    function switchTab(tab) {
+      document.getElementById('tab-tasks').style.display    = tab === 'tasks'    ? '' : 'none'
+      document.getElementById('tab-estimate').style.display = tab === 'estimate' ? '' : 'none'
+      document.getElementById('tab-btn-tasks').classList.toggle('active',    tab === 'tasks')
+      document.getElementById('tab-btn-estimate').classList.toggle('active', tab === 'estimate')
+    }
+
+    // ─── Currency ─────────────────────────────────────────
+    function setCurrencyAndRefresh(code) {
+      setCurrency(code)
+      if (project && estimateData) renderEstimateTotals()
+    }
+
+    // ─── TASKS ────────────────────────────────────────────
+    let taskFilter = 'all'
+
+    function setTaskFilter(f, btn) {
+      taskFilter = f
+      document.querySelectorAll('[data-tfilter]').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      renderTasks()
+    }
+
+    function renderTasks() {
+      if (!project) return
+
+      const allTasks      = getTasks(project.id)
+      const filteredTasks = taskFilter === 'all' ? allTasks : allTasks.filter(t => t.status === taskFilter)
+
+      const done  = allTasks.filter(t => t.status === 'done').length
+      const total = allTasks.length
+      const pct   = total > 0 ? Math.round((done / total) * 100) : 0
+
+      document.getElementById('tasks-done-count').textContent  = done
+      document.getElementById('tasks-total-count').textContent = total
+      document.getElementById('tasks-pct').textContent         = pct + '%'
+      document.getElementById('tab-count-tasks').textContent   = total
+
+      const bar = document.getElementById('tasks-progress-bar')
+      bar.style.width = pct + '%'
+      bar.className   = 'task-progress-fill' + (pct === 100 && total > 0 ? ' all-done' : '')
+
+      const list  = document.getElementById('tasks-list')
+      const empty = document.getElementById('tasks-empty')
+
+      if (filteredTasks.length === 0) {
+        list.innerHTML = ''
+        empty.classList.remove('hidden')
+        return
+      }
+
+      empty.classList.add('hidden')
+
+      // Group by category
+      const grouped = {}
+      TASK_CATEGORIES.forEach(c => { grouped[c.id] = [] })
+      filteredTasks.forEach(t => {
+        const cat = t.category || 'admin'
+        if (!grouped[cat]) grouped[cat] = []
+        grouped[cat].push(t)
+      })
+
+      list.innerHTML = TASK_CATEGORIES
+        .filter(c => grouped[c.id] && grouped[c.id].length > 0)
+        .map(c => `
+          <div class="task-group">
+            <div class="task-group-header" style="color:${c.color}">
+              <span>${c.label}</span>
+              <span class="task-group-count">${grouped[c.id].length}</span>
+            </div>
+            ${grouped[c.id].map(t => renderTaskItem(t)).join('')}
+          </div>
+        `).join('')
+    }
+
+    function renderTaskItem(t) {
+      const isDone       = t.status === 'done'
+      const isInProgress = t.status === 'inprogress'
+      return `
+        <div class="task-item${isDone ? ' task-done' : ''}">
+          <label class="task-check-label">
+            <input type="checkbox" class="task-check" ${isDone ? 'checked' : ''}
+              onchange="toggleTaskDone('${t.id}', this.checked)">
+            <span class="task-checkmark"></span>
+          </label>
+          <div class="task-body">
+            <span class="task-title${isDone ? ' task-strikethrough' : ''}">${escHtml(t.title)}</span>
+            ${isInProgress ? '<span class="task-status-inprogress"></span>' : ''}
+            ${t.dueDate ? `<span class="task-due">${fmtDate(t.dueDate)}</span>` : ''}
+            ${t.notes   ? `<span class="task-notes-preview">${escHtml(t.notes)}</span>` : ''}
+          </div>
+          <div class="task-actions">
+            <button class="btn btn-ghost btn-sm" onclick="openTaskModal('${t.id}')">Edit</button>
+          </div>
+        </div>`
+    }
+
+    function toggleTaskDone(taskId, checked) {
+      updateTask(project.id, taskId, { status: checked ? 'done' : 'todo' })
+      renderTasks()
+    }
+
+    // ─── Task modal ───────────────────────────────────────
+    function openTaskModal(id) {
+      document.getElementById('task-modal-title').textContent        = id ? 'Edit task' : 'New task'
+      document.getElementById('task-btn-delete').style.display = id ? '' : 'none'
+
+      if (id) {
+        const t = getTasks(project.id).find(t => t.id === id)
+        if (!t) return
+        document.getElementById('task-edit-id').value   = id
+        document.getElementById('task-f-title').value   = t.title || ''
+        document.getElementById('task-f-cat').value     = t.category || 'admin'
+        document.getElementById('task-f-status').value  = t.status || 'todo'
+        document.getElementById('task-f-due').value     = t.dueDate || ''
+        document.getElementById('task-f-notes').value   = t.notes || ''
+      } else {
+        document.getElementById('task-edit-id').value   = ''
+        document.getElementById('task-f-title').value   = ''
+        document.getElementById('task-f-cat').value     = 'admin'
+        document.getElementById('task-f-status').value  = 'todo'
+        document.getElementById('task-f-due').value     = ''
+        document.getElementById('task-f-notes').value   = ''
+      }
+
+      document.getElementById('task-modal-overlay').classList.add('open')
+      setTimeout(() => document.getElementById('task-f-title').focus(), 80)
+    }
+
+    function closeTaskModal() {
+      document.getElementById('task-modal-overlay').classList.remove('open')
+    }
+
+    function handleTaskOverlayClick(e) {
+      if (e.target === document.getElementById('task-modal-overlay')) closeTaskModal()
+    }
+
+    function saveTask() {
+      const title = document.getElementById('task-f-title').value.trim()
+      if (!title) { document.getElementById('task-f-title').focus(); return }
+
+      const data = {
+        title,
+        category: document.getElementById('task-f-cat').value,
+        status:   document.getElementById('task-f-status').value,
+        dueDate:  document.getElementById('task-f-due').value,
+        notes:    document.getElementById('task-f-notes').value.trim(),
+      }
+
+      const id = document.getElementById('task-edit-id').value
+      if (id) {
+        updateTask(project.id, id, data)
+        showToast('Task updated')
+      } else {
+        addTask(project.id, data)
+        showToast('Task added')
+      }
+
+      closeTaskModal()
+      renderTasks()
+    }
+
+    function deleteCurrentTask() {
+      const id = document.getElementById('task-edit-id').value
+      if (!id || !confirm('Delete this task?')) return
+      deleteTask(project.id, id)
+      closeTaskModal()
+      renderTasks()
+      showToast('Task deleted')
+    }
+
+    // ─── ESTIMATE ─────────────────────────────────────────
+    let estimateData = null
+
+    function renderEstimate() {
+      if (!project) return
+      estimateData = getEstimate(project.id)
+      document.getElementById('est-markup').value = estimateData.markup ?? 15
+      document.getElementById('est-notes').value  = estimateData.notes || ''
+      renderEstimateSections()
+      renderEstimateTotals()
+    }
+
+    function renderEstimateSections() {
+      document.getElementById('estimate-sections').innerHTML =
+        estimateData.sections.map(renderSection).join('')
+    }
+
+    function renderSection(section) {
+      const subtotal = section.items.reduce((s, i) => s + (Number(i.total) || 0), 0)
+      return `
+        <div class="estimate-section" data-sid="${section.id}">
+          <div class="estimate-section-header">
+            <input class="estimate-section-title" value="${escHtml(section.title)}"
+              onchange="updateSectionTitle('${section.id}', this.value)"
+              onblur="updateSectionTitle('${section.id}', this.value)">
+            <div class="estimate-section-controls">
+              <button class="btn btn-ghost btn-sm" onclick="addEstimateItem('${section.id}')">+ Item</button>
+              <button class="estimate-section-del" onclick="deleteEstimateSection('${section.id}')">✕</button>
+            </div>
+          </div>
+          <table class="estimate-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="width:72px">Qty</th>
+                <th style="width:130px">Unit price</th>
+                <th style="width:110px;text-align:right">Total</th>
+                <th style="width:30px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${section.items.map(item => renderEstimateItem(section.id, item)).join('')}
+            </tbody>
+          </table>
+          <div class="estimate-section-subtotal">
+            <span>Subtotal</span>
+            <span class="font-vt" id="st-${section.id}" style="font-size:20px">${fmtMoney(subtotal)}</span>
+          </div>
+        </div>`
+    }
+
+    function renderEstimateItem(sectionId, item) {
+      return `
+        <tr data-iid="${item.id}">
+          <td>
+            <input type="text" value="${escHtml(item.description)}" placeholder="Description"
+              oninput="updateEstimateField('${sectionId}','${item.id}','description',this.value)">
+          </td>
+          <td>
+            <input type="number" value="${item.qty ?? 1}" min="0" step="0.5"
+              style="width:100%;text-align:center"
+              oninput="updateEstimateField('${sectionId}','${item.id}','qty',parseFloat(this.value)||0)">
+          </td>
+          <td>
+            <input type="number" value="${item.price ?? 0}" min="0"
+              oninput="updateEstimateField('${sectionId}','${item.id}','price',parseFloat(this.value)||0)">
+          </td>
+          <td style="text-align:right">
+            <span class="font-vt" id="it-${item.id}" style="font-size:17px;color:var(--text-mid)">
+              ${fmtMoney(item.total || 0)}
+            </span>
+          </td>
+          <td>
+            <button class="item-remove" onclick="removeEstimateItem('${sectionId}','${item.id}')">✕</button>
+          </td>
+        </tr>`
+    }
+
+    function updateEstimateField(sectionId, itemId, field, value) {
+      const section = estimateData.sections.find(s => s.id === sectionId)
+      if (!section) return
+      const item = section.items.find(i => i.id === itemId)
+      if (!item) return
+
+      item[field] = value
+
+      if (field === 'qty' || field === 'price') {
+        item.total = (Number(item.qty) || 0) * (Number(item.price) || 0)
+        const totalEl = document.getElementById('it-' + itemId)
+        if (totalEl) totalEl.textContent = fmtMoney(item.total)
+        const sTotal = section.items.reduce((s, i) => s + (Number(i.total) || 0), 0)
+        const stEl   = document.getElementById('st-' + sectionId)
+        if (stEl) stEl.textContent = fmtMoney(sTotal)
+      }
+
+      saveEstimate(project.id, estimateData)
+      renderEstimateTotals()
+    }
+
+    function updateSectionTitle(sectionId, value) {
+      const section = estimateData.sections.find(s => s.id === sectionId)
+      if (section) { section.title = value; saveEstimate(project.id, estimateData) }
+    }
+
+    function addEstimateItem(sectionId) {
+      const section = estimateData.sections.find(s => s.id === sectionId)
+      if (!section) return
+      section.items.push({ id: uid(), description: '', qty: 1, price: 0, total: 0 })
+      saveEstimate(project.id, estimateData)
+      renderEstimateSections()
+      renderEstimateTotals()
+      const tbody = document.querySelector(`[data-sid="${sectionId}"] tbody`)
+      if (tbody) {
+        const lastInput = tbody.lastElementChild?.querySelector('input[type=text]')
+        if (lastInput) setTimeout(() => lastInput.focus(), 30)
+      }
+    }
+
+    function removeEstimateItem(sectionId, itemId) {
+      const section = estimateData.sections.find(s => s.id === sectionId)
+      if (!section) return
+      section.items = section.items.filter(i => i.id !== itemId)
+      saveEstimate(project.id, estimateData)
+      renderEstimateSections()
+      renderEstimateTotals()
+    }
+
+    function deleteEstimateSection(sectionId) {
+      const section = estimateData.sections.find(s => s.id === sectionId)
+      if (!section) return
+      if (section.items.length > 0 && !confirm(`Delete "${section.title}" and all its items?`)) return
+      estimateData.sections = estimateData.sections.filter(s => s.id !== sectionId)
+      saveEstimate(project.id, estimateData)
+      renderEstimateSections()
+      renderEstimateTotals()
+    }
+
+    function addEstimateSection() {
+      estimateData.sections.push({ id: uid(), title: 'New Section', items: [] })
+      saveEstimate(project.id, estimateData)
+      renderEstimateSections()
+      renderEstimateTotals()
+      const titles = document.querySelectorAll('.estimate-section-title')
+      if (titles.length) setTimeout(() => { titles[titles.length - 1].focus(); titles[titles.length - 1].select() }, 30)
+    }
+
+    function updateMarkup(val) {
+      estimateData.markup = val
+      saveEstimate(project.id, estimateData)
+      renderEstimateTotals()
+    }
+
+    function updateEstimateNotes(val) {
+      estimateData.notes = val
+      saveEstimate(project.id, estimateData)
+    }
+
+    function renderEstimateTotals() {
+      if (!estimateData) return
+      const subtotal = estimateData.sections.reduce((s, sec) =>
+        s + sec.items.reduce((ss, i) => ss + (Number(i.total) || 0), 0), 0)
+      const markup = estimateData.markup ?? 15
+      const fee    = Math.round(subtotal * markup / 100)
+      const grand  = subtotal + fee
+
+      document.getElementById('est-subtotal').textContent = fmtMoney(subtotal)
+      document.getElementById('est-fee').textContent      = fmtMoney(fee)
+      document.getElementById('est-grand').textContent    = fmtMoney(grand)
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeTaskModal()
+    })
+  </script>
+</body>
+</html>

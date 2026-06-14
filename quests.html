@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var t = localStorage.getItem('ldq_theme') || 'dark'
+      document.documentElement.setAttribute('data-theme', t)
+    })()
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Livre de Quête — Quests</title>
+  <link rel="stylesheet" href="css/studio.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-name">LIVRE DE QUÊTE</div>
+      <div class="sidebar-logo-sub">Enzo Piquet — Studio</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html">Dashboard</a>
+      <a href="projects.html">Projects <span class="nav-count" id="count-projects">0</span></a>
+      <a href="clients.html">Clients <span class="nav-count" id="count-clients">0</span></a>
+      <a href="invoices.html">Invoices <span class="nav-count" id="count-invoices">0</span></a>
+      <a href="revenue.html">Revenue</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="calendar.html">Calendar</a>
+      <a href="production.html">Production</a>
+      <a href="quests.html" class="active">Quests <span class="nav-count" id="count-quests">0</span></a>
+    </nav>
+    <div class="currency-wrap">
+      <span class="currency-label">Currency</span>
+      <select class="currency-select" id="currency-select" onchange="setCurrencyAndRefresh(this.value)">
+        <option value="JPY">¥ JPY</option>
+        <option value="EUR">€ EUR</option>
+        <option value="USD">$ USD</option>
+        <option value="GBP">£ GBP</option>
+        <option value="KRW">₩ KRW</option>
+        <option value="CNY">¥ CNY</option>
+      </select>
+    </div>
+    <div class="theme-wrap">
+      <span class="currency-label">Theme</span>
+      <div class="theme-toggle">
+        <button class="theme-btn" id="theme-btn-dark" onclick="setThemeAndRefresh('dark')">Dark</button>
+        <button class="theme-btn" id="theme-btn-light" onclick="setThemeAndRefresh('light')">Light</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <a href="../index.html">← Portfolio</a>
+      <p class="copyright">© 2025 Enzo Piquet</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="studio-main">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Quests</h1>
+        <p class="page-subtitle" id="quest-subtitle"></p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary" onclick="openModal()">+ New quest</button>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- Stats row -->
+      <div class="stats-grid" style="margin-bottom:24px">
+        <div class="stat-card level-card">
+          <div class="stat-label">Adventurer Level</div>
+          <div class="level-value">
+            <span class="stat-value accent" id="quest-level">LV. 1</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="quest-xp-bar" style="width:0%"></div>
+          </div>
+          <div class="level-xp" id="quest-xp-label">0 / 100 XP</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Today</div>
+          <div class="stat-value" id="stat-day">—</div>
+          <div class="stat-delta">Daily quests done</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Week</div>
+          <div class="stat-value" id="stat-week">—</div>
+          <div class="stat-delta">Weekly quests done</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" id="stat-month">—</div>
+          <div class="stat-delta">Monthly quests done</div>
+        </div>
+      </div>
+
+      <!-- Timeframe filter -->
+      <div class="filter-bar" id="filter-bar" style="padding:0;border-bottom:none;margin-bottom:12px">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="day">Daily</button>
+        <button class="filter-btn" data-filter="week">Weekly</button>
+        <button class="filter-btn" data-filter="month">Monthly</button>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar" style="padding:0 0 16px;border-bottom:none">
+        <input type="text" class="search-input" id="search" placeholder="Search quests…" oninput="renderLists()">
+        <select class="form-select" id="filter-cat" onchange="renderLists()" style="width:160px">
+          <option value="">All categories</option>
+        </select>
+        <select class="form-select" id="filter-diff" onchange="renderLists()" style="width:150px">
+          <option value="">All difficulties</option>
+        </select>
+        <div class="checkbox-row" style="margin-left:auto">
+          <input type="checkbox" id="hide-completed" onchange="renderLists()">
+          <label for="hide-completed" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-mid)">Hide completed</label>
+        </div>
+      </div>
+
+      <!-- Quest sections -->
+      <div class="section-block" id="section-day" style="margin-bottom:20px">
+        <div class="section-block-header">
+          <span class="section-block-title">Daily Quests</span>
+          <span class="quest-section-progress" id="section-day-progress">0 / 0</span>
+        </div>
+        <div id="section-day-list"></div>
+      </div>
+
+      <div class="section-block" id="section-week" style="margin-bottom:20px">
+        <div class="section-block-header">
+          <span class="section-block-title">Weekly Quests</span>
+          <span class="quest-section-progress" id="section-week-progress">0 / 0</span>
+        </div>
+        <div id="section-week-list"></div>
+      </div>
+
+      <div class="section-block" id="section-month" style="margin-bottom:20px">
+        <div class="section-block-header">
+          <span class="section-block-title">Monthly Quests</span>
+          <span class="quest-section-progress" id="section-month-progress">0 / 0</span>
+        </div>
+        <div id="section-month-list"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">New quest</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input type="text" class="form-input" id="f-title" placeholder="What needs to get done?">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Difficulty</label>
+            <div class="seg-toggle" id="f-difficulty">
+              <button type="button" class="seg-btn diff-easy"   data-val="easy"   onclick="selectSeg('f-difficulty','easy')">Easy</button>
+              <button type="button" class="seg-btn diff-medium" data-val="medium" onclick="selectSeg('f-difficulty','medium')">Medium</button>
+              <button type="button" class="seg-btn diff-hard"   data-val="hard"   onclick="selectSeg('f-difficulty','hard')">Hard</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Timeframe</label>
+            <div class="seg-toggle" id="f-timeframe">
+              <button type="button" class="seg-btn" data-val="day"   onclick="selectSeg('f-timeframe','day')">Day</button>
+              <button type="button" class="seg-btn" data-val="week"  onclick="selectSeg('f-timeframe','week')">Week</button>
+              <button type="button" class="seg-btn" data-val="month" onclick="selectSeg('f-timeframe','month')">Month</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-select" id="f-category"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due date (optional)</label>
+            <input type="date" class="form-input" id="f-due">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="checkbox-row">
+            <input type="checkbox" id="f-repeat">
+            <label for="f-repeat" style="font-size:12px;color:var(--text-mid)">Recurring — resets automatically each period</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="f-notes" placeholder="Optional details…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btn-delete" onclick="deleteCurrentQuest()" style="display:none">Delete</button>
+        <div class="modal-footer-right">
+          <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveQuest()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script>
+    seedIfEmpty()
+
+    let currentFilter = 'all'
+
+    function setThemeAndRefresh(theme) {
+      setTheme(theme)
+      updateThemeButtons()
+    }
+
+    function updateThemeButtons() {
+      const t = getTheme()
+      document.getElementById('theme-btn-dark').classList.toggle('active', t === 'dark')
+      document.getElementById('theme-btn-light').classList.toggle('active', t === 'light')
+    }
+    updateThemeButtons()
+
+    document.getElementById('currency-select').value = getCurrency()
+    function setCurrencyAndRefresh(code) { setCurrency(code) }
+
+    function updateCounts() {
+      document.getElementById('count-projects').textContent = getProjects().length
+      document.getElementById('count-clients').textContent  = getClients().length
+      document.getElementById('count-invoices').textContent = getInvoices().length
+      document.getElementById('count-quests').textContent   = getQuests().filter(q => !q.done).length
+    }
+
+    // Populate filter / form selects
+    document.getElementById('filter-cat').innerHTML += QUEST_CATEGORIES.map(c => `<option value="${c.id}">${c.label}</option>`).join('')
+    document.getElementById('filter-diff').innerHTML += QUEST_DIFFICULTIES.map(d => `<option value="${d.id}">${d.label}</option>`).join('')
+
+    function populateCategorySelect() {
+      document.getElementById('f-category').innerHTML =
+        QUEST_CATEGORIES.map(c => `<option value="${c.id}">${c.label}</option>`).join('')
+    }
+
+    // Timeframe filter tabs
+    document.getElementById('filter-bar').addEventListener('click', e => {
+      const btn = e.target.closest('.filter-btn')
+      if (!btn) return
+      document.querySelectorAll('#filter-bar .filter-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      currentFilter = btn.dataset.filter
+      renderLists()
+    })
+
+    // ─── Segmented toggle helper ───────────────────────────
+    function selectSeg(groupId, val) {
+      const group = document.getElementById(groupId)
+      group.dataset.value = val
+      group.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val))
+    }
+
+    function getSeg(groupId) {
+      return document.getElementById(groupId).dataset.value
+    }
+
+    // ─── Render ─────────────────────────────────────────────
+    function render() {
+      updateCounts()
+
+      const lvl = getQuestLevel()
+      document.getElementById('quest-level').textContent    = 'LV. ' + lvl.level
+      document.getElementById('quest-xp-bar').style.width   = lvl.xpIntoLevel + '%'
+      document.getElementById('quest-xp-label').textContent = `${lvl.xpIntoLevel} / ${lvl.xpForNext} XP`
+
+      const stats = getQuestStats()
+      document.getElementById('stat-day').textContent   = `${stats.day.done} / ${stats.day.total}`
+      document.getElementById('stat-week').textContent  = `${stats.week.done} / ${stats.week.total}`
+      document.getElementById('stat-month').textContent = `${stats.month.done} / ${stats.month.total}`
+
+      const active = stats.total - stats.done
+      document.getElementById('quest-subtitle').textContent =
+        `${active} active quest${active !== 1 ? 's' : ''} · Level ${lvl.level}`
+
+      renderLists()
+    }
+
+    function getFilteredQuests() {
+      const q    = document.getElementById('search').value.toLowerCase()
+      const cat  = document.getElementById('filter-cat').value
+      const diff = document.getElementById('filter-diff').value
+      const hideCompleted = document.getElementById('hide-completed').checked
+
+      let quests = getQuests()
+      if (q)    quests = quests.filter(x => x.title.toLowerCase().includes(q))
+      if (cat)  quests = quests.filter(x => x.category === cat)
+      if (diff) quests = quests.filter(x => x.difficulty === diff)
+      if (hideCompleted) quests = quests.filter(x => !x.done)
+      return quests
+    }
+
+    function renderQuestList(quests, timeframe) {
+      const items = quests
+        .filter(x => x.timeframe === timeframe)
+        .sort((a, b) => (a.done === b.done) ? (b.createdAt - a.createdAt) : (a.done ? 1 : -1))
+
+      if (items.length === 0) {
+        return `<div class="empty-state">
+          <div class="empty-state-icon">[ ]</div>
+          <div class="empty-state-title">No quests</div>
+          <div class="empty-state-sub">Add one to get started</div>
+        </div>`
+      }
+
+      const today = new Date().toISOString().slice(0, 10)
+
+      return '<div class="quest-list">' + items.map(qst => {
+        const diff    = QUEST_DIFFICULTIES.find(d => d.id === qst.difficulty) || QUEST_DIFFICULTIES[0]
+        const cat     = QUEST_CATEGORIES.find(c => c.id === qst.category)
+        const overdue = qst.dueDate && !qst.done && qst.dueDate < today
+        return `
+          <div class="quest-item">
+            <button class="quest-check ${qst.done ? 'done' : ''}" onclick="toggleQuest('${qst.id}')">${qst.done ? '✓' : ''}</button>
+            <div class="quest-info" style="cursor:pointer" onclick="openModal('${qst.id}')">
+              <div class="quest-title ${qst.done ? 'done' : ''}">${escHtml(qst.title)}</div>
+              <div class="quest-meta">
+                ${cat ? `<span class="quest-tag" style="color:${cat.color};border-color:${cat.color}">${cat.label}</span>` : ''}
+                <span class="quest-diff quest-diff-${diff.id}">${diff.label} · +${diff.xp} XP</span>
+                ${qst.repeat ? '<span class="quest-repeat">↻ Repeats</span>' : ''}
+                ${qst.dueDate ? `<span class="quest-due" style="${overdue ? 'color:var(--danger)' : ''}">${overdue ? 'Overdue ' : 'Due '}${fmtDate(qst.dueDate)}</span>` : ''}
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="openModal('${qst.id}')">Edit</button>
+          </div>`
+      }).join('') + '</div>'
+    }
+
+    function renderLists() {
+      const quests = getFilteredQuests()
+
+      ;['day', 'week', 'month'].forEach(tf => {
+        const wrap = document.getElementById('section-' + tf)
+        wrap.style.display = (currentFilter === 'all' || currentFilter === tf) ? '' : 'none'
+        document.getElementById('section-' + tf + '-list').innerHTML = renderQuestList(quests, tf)
+
+        const all  = quests.filter(x => x.timeframe === tf)
+        const done = all.filter(x => x.done).length
+        document.getElementById('section-' + tf + '-progress').textContent = `${done} / ${all.length}`
+      })
+    }
+
+    function toggleQuest(id) {
+      const q = getQuestById(id)
+      if (!q) return
+      const wasDone = q.done
+      const diff = QUEST_DIFFICULTIES.find(d => d.id === q.difficulty)
+      toggleQuestDone(id)
+      if (!wasDone) showToast(`Quest complete · +${diff.xp} XP`)
+      render()
+    }
+
+    render()
+
+    // ─── Modal ──────────────────────────────────────────────
+    function openModal(id) {
+      document.getElementById('modal-title').textContent  = id ? 'Edit quest' : 'New quest'
+      document.getElementById('btn-delete').style.display = id ? '' : 'none'
+
+      populateCategorySelect()
+
+      if (id) {
+        const q = getQuestById(id)
+        if (!q) return
+        document.getElementById('edit-id').value    = id
+        document.getElementById('f-title').value    = q.title || ''
+        document.getElementById('f-category').value = q.category || 'work'
+        document.getElementById('f-due').value      = q.dueDate || ''
+        document.getElementById('f-repeat').checked = !!q.repeat
+        document.getElementById('f-notes').value    = q.notes || ''
+        selectSeg('f-difficulty', q.difficulty || 'easy')
+        selectSeg('f-timeframe', q.timeframe || 'day')
+      } else {
+        document.getElementById('edit-id').value    = ''
+        document.getElementById('f-title').value    = ''
+        document.getElementById('f-category').value = 'work'
+        document.getElementById('f-due').value      = ''
+        document.getElementById('f-repeat').checked = false
+        document.getElementById('f-notes').value    = ''
+        selectSeg('f-difficulty', 'easy')
+        selectSeg('f-timeframe', currentFilter !== 'all' ? currentFilter : 'day')
+      }
+
+      document.getElementById('modal-overlay').classList.add('open')
+      setTimeout(() => document.getElementById('f-title').focus(), 80)
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open')
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modal-overlay')) closeModal()
+    }
+
+    function saveQuest() {
+      const title = document.getElementById('f-title').value.trim()
+      if (!title) { document.getElementById('f-title').focus(); return }
+
+      const data = {
+        title,
+        difficulty: getSeg('f-difficulty'),
+        timeframe:  getSeg('f-timeframe'),
+        category:   document.getElementById('f-category').value,
+        dueDate:    document.getElementById('f-due').value || null,
+        repeat:     document.getElementById('f-repeat').checked,
+        notes:      document.getElementById('f-notes').value.trim(),
+      }
+
+      const id = document.getElementById('edit-id').value
+      if (id) { updateQuest(id, data); showToast('Quest updated') }
+      else    { addQuest(data);        showToast('Quest added') }
+
+      closeModal()
+      render()
+    }
+
+    function deleteCurrentQuest() {
+      const id = document.getElementById('edit-id').value
+      if (!id || !confirm('Delete this quest?')) return
+      deleteQuest(id)
+      closeModal()
+      render()
+      showToast('Quest deleted')
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal() })
+  </script>
+</body>
+</html>

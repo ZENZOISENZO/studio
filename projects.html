@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var t = localStorage.getItem('ldq_theme') || 'dark'
+      document.documentElement.setAttribute('data-theme', t)
+    })()
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Livre de Quête — Projects</title>
+  <link rel="stylesheet" href="css/studio.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-name">LIVRE DE QUÊTE</div>
+      <div class="sidebar-logo-sub">Enzo Piquet — Studio</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html">Dashboard</a>
+      <a href="projects.html" class="active">Projects <span class="nav-count" id="count-projects">0</span></a>
+      <a href="clients.html">Clients <span class="nav-count" id="count-clients">0</span></a>
+      <a href="invoices.html">Invoices <span class="nav-count" id="count-invoices">0</span></a>
+      <a href="revenue.html">Revenue</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="calendar.html">Calendar</a>
+      <a href="production.html">Production</a>
+      <a href="quests.html">Quests <span class="nav-count" id="count-quests">0</span></a>
+    </nav>
+    <div class="currency-wrap">
+      <span class="currency-label">Currency</span>
+      <select class="currency-select" id="currency-select" onchange="setCurrencyAndRefresh(this.value)">
+        <option value="JPY">¥ JPY</option>
+        <option value="EUR">€ EUR</option>
+        <option value="USD">$ USD</option>
+        <option value="GBP">£ GBP</option>
+        <option value="KRW">₩ KRW</option>
+        <option value="CNY">¥ CNY</option>
+      </select>
+    </div>
+    <div class="theme-wrap">
+      <span class="currency-label">Theme</span>
+      <div class="theme-toggle">
+        <button class="theme-btn" id="theme-btn-dark" onclick="setThemeAndRefresh('dark')">Dark</button>
+        <button class="theme-btn" id="theme-btn-light" onclick="setThemeAndRefresh('light')">Light</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <a href="../index.html">← Portfolio</a>
+      <p class="copyright">© 2025 Enzo Piquet</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="studio-main">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Projects</h1>
+        <p class="page-subtitle" id="proj-count-sub"></p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary" onclick="openModal()">+ New project</button>
+      </div>
+    </div>
+
+    <div class="filter-bar" id="filter-bar">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="brief">Brief</button>
+      <button class="filter-btn" data-filter="preprod">Pre-prod</button>
+      <button class="filter-btn" data-filter="shooting">Shooting</button>
+      <button class="filter-btn" data-filter="post">Post-prod</button>
+      <button class="filter-btn" data-filter="delivered">Delivered</button>
+      <button class="filter-btn" data-filter="archived">Archived</button>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" class="search-input" id="search" placeholder="Search projects…" oninput="renderTable()">
+    </div>
+
+    <div id="table-wrap">
+      <table class="data-table" id="projects-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Title</th>
+            <th>Client</th>
+            <th>Type</th>
+            <th>Format</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Budget</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="projects-tbody"></tbody>
+      </table>
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-state-icon">[  ]</div>
+        <div class="empty-state-title">No projects found</div>
+        <div class="empty-state-sub">Create your first project</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">New project</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Title *</label>
+            <input type="text" class="form-input" id="f-title" placeholder="Project name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Client</label>
+            <select class="form-select" id="f-client"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="f-type">
+              <option value="photo">Photo</option>
+              <option value="video">Video</option>
+              <option value="hybrid">Photo + Video</option>
+              <option value="model">Model</option>
+              <option value="producer">Producer</option>
+              <option value="casting">Casting Director</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Format</label>
+            <select class="form-select" id="f-format">
+              <option value="35mm">35mm Film</option>
+              <option value="16mm">16mm Film</option>
+              <option value="medium">Medium Format</option>
+              <option value="digital">Digital</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="f-status">
+              <option value="brief">Brief</option>
+              <option value="preprod">Pre-production</option>
+              <option value="shooting">Shooting</option>
+              <option value="post">Post-production</option>
+              <option value="delivered">Delivered</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shoot date</label>
+            <input type="date" class="form-input" id="f-date">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Budget</label>
+            <input type="number" class="form-input" id="f-amount" placeholder="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="f-notes" placeholder="Description, brief, notes…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btn-delete" onclick="deleteCurrentProject()" style="display:none">Delete</button>
+        <div class="modal-footer-right">
+          <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveProject()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script>
+    seedIfEmpty()
+
+    let currentFilter = 'all'
+
+    function setThemeAndRefresh(theme) {
+      setTheme(theme)
+      updateThemeButtons()
+    }
+
+    function updateThemeButtons() {
+      const t = getTheme()
+      document.getElementById('theme-btn-dark').classList.toggle('active', t === 'dark')
+      document.getElementById('theme-btn-light').classList.toggle('active', t === 'light')
+    }
+    updateThemeButtons()
+
+    document.getElementById('currency-select').value = getCurrency()
+
+    function setCurrencyAndRefresh(code) {
+      setCurrency(code)
+      renderTable()
+    }
+
+    function updateCounts() {
+      document.getElementById('count-projects').textContent = getProjects().length
+      document.getElementById('count-clients').textContent  = getClients().length
+      document.getElementById('count-invoices').textContent = getInvoices().length
+      document.getElementById('count-quests').textContent = getQuests().filter(q => !q.done).length
+    }
+    updateCounts()
+
+    document.getElementById('filter-bar').addEventListener('click', e => {
+      const btn = e.target.closest('.filter-btn')
+      if (!btn) return
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      currentFilter = btn.dataset.filter
+      renderTable()
+    })
+
+    const statusLabels = {
+      brief:'Brief', preprod:'Pre-prod', shooting:'Shooting', post:'Post-prod',
+      delivered:'Delivered', archived:'Archived',
+    }
+    const typeLabels = { photo:'Photo', video:'Video', hybrid:'Photo+Video', model:'Model', producer:'Producer', casting:'Casting Director' }
+
+    function renderTable() {
+      const q = document.getElementById('search').value.toLowerCase()
+      let projects = getProjects()
+
+      if (currentFilter !== 'all') projects = projects.filter(p => p.status === currentFilter)
+      if (q) projects = projects.filter(p =>
+        p.title.toLowerCase().includes(q) ||
+        getClientName(p.clientId).toLowerCase().includes(q)
+      )
+
+      const total = getProjects().length
+      document.getElementById('proj-count-sub').textContent =
+        `${total} project${total !== 1 ? 's' : ''}`
+
+      const tbody = document.getElementById('projects-tbody')
+      const empty = document.getElementById('empty-state')
+
+      if (projects.length === 0) {
+        tbody.innerHTML = ''
+        empty.classList.remove('hidden')
+        return
+      }
+
+      empty.classList.add('hidden')
+      tbody.innerHTML = projects.map((p, i) => `
+        <tr onclick="location.href='production.html?id=${p.id}'" style="cursor:pointer">
+          <td class="td-num">[${String(i + 1).padStart(3, '0')}]</td>
+          <td class="td-main">${p.title}</td>
+          <td>${getClientName(p.clientId)}</td>
+          <td>${typeLabels[p.type] || p.type}</td>
+          <td>${p.format || '—'}</td>
+          <td><span class="badge badge-${p.status}">${statusLabels[p.status] || p.status}</span></td>
+          <td>${fmtDate(p.date)}</td>
+          <td class="td-amount">${p.amount ? fmtMoney(p.amount) : '—'}</td>
+          <td class="td-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-ghost btn-sm" onclick="openModal('${p.id}')">Edit</button>
+          </td>
+        </tr>`).join('')
+    }
+
+    renderTable()
+
+    function populateClientSelect(selectedId) {
+      const sel = document.getElementById('f-client')
+      sel.innerHTML = '<option value="">— No client —</option>' +
+        getClients().map(c => `<option value="${c.id}"${c.id === selectedId ? ' selected' : ''}>${c.name}${c.company ? ` (${c.company})` : ''}</option>`).join('')
+    }
+
+    function openModal(id) {
+      document.getElementById('modal-title').textContent = id ? 'Edit project' : 'New project'
+      document.getElementById('btn-delete').style.display = id ? '' : 'none'
+      populateClientSelect('')
+
+      if (id) {
+        const p = getProjectById(id)
+        if (!p) return
+        document.getElementById('edit-id').value  = id
+        document.getElementById('f-title').value  = p.title || ''
+        document.getElementById('f-client').value = p.clientId || ''
+        document.getElementById('f-type').value   = p.type || 'photo'
+        document.getElementById('f-format').value = p.format || '35mm'
+        document.getElementById('f-status').value = p.status || 'brief'
+        document.getElementById('f-date').value   = p.date || ''
+        document.getElementById('f-amount').value = p.amount || ''
+        document.getElementById('f-notes').value  = p.description || ''
+      } else {
+        document.getElementById('edit-id').value  = ''
+        document.getElementById('f-title').value  = ''
+        document.getElementById('f-type').value   = 'photo'
+        document.getElementById('f-format').value = '35mm'
+        document.getElementById('f-status').value = 'brief'
+        document.getElementById('f-date').value   = ''
+        document.getElementById('f-amount').value = ''
+        document.getElementById('f-notes').value  = ''
+      }
+
+      document.getElementById('modal-overlay').classList.add('open')
+      setTimeout(() => document.getElementById('f-title').focus(), 80)
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open')
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modal-overlay')) closeModal()
+    }
+
+    function saveProject() {
+      const title = document.getElementById('f-title').value.trim()
+      if (!title) { document.getElementById('f-title').focus(); return }
+
+      const data = {
+        title,
+        clientId:    document.getElementById('f-client').value,
+        type:        document.getElementById('f-type').value,
+        format:      document.getElementById('f-format').value,
+        status:      document.getElementById('f-status').value,
+        date:        document.getElementById('f-date').value,
+        amount:      parseFloat(document.getElementById('f-amount').value) || 0,
+        description: document.getElementById('f-notes').value.trim(),
+      }
+
+      const id = document.getElementById('edit-id').value
+      if (id) {
+        updateProject(id, data)
+        showToast('Project updated')
+      } else {
+        addProject(data)
+        showToast('Project created')
+      }
+
+      closeModal()
+      updateCounts()
+      renderTable()
+    }
+
+    function deleteCurrentProject() {
+      const id = document.getElementById('edit-id').value
+      if (!id) return
+      if (!confirm('Delete this project?')) return
+      deleteProject(id)
+      closeModal()
+      updateCounts()
+      renderTable()
+      showToast('Project deleted')
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal()
+    })
+  </script>
+</body>
+</html>

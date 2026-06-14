@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var t = localStorage.getItem('ldq_theme') || 'dark'
+      document.documentElement.setAttribute('data-theme', t)
+    })()
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice — Enzo Piquet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+
+    :root {
+      --bg:            #080808;
+      --bg-card:       #0d0d0d;
+      --bg-alt:        #090909;
+      --bg-hover:      #121212;
+      --text:          #d4d4d4;
+      --text-strong:   #f4f4f4;
+      --text-mid:      #8a8a8a;
+      --text-dim:      #3e3e3e;
+      --border:        #1a1a1a;
+      --border-strong: #303030;
+      --accent:        #1B1BD1;
+      --accent-hover:  #2525e8;
+      --scanline:      rgba(0,0,0,.09);
+    }
+
+    [data-theme="light"] {
+      --bg:            #f2f1ec;
+      --bg-card:       #ffffff;
+      --bg-alt:        #f7f6f1;
+      --bg-hover:      #efeee7;
+      --text:          #2c2b28;
+      --text-strong:   #0e0e0e;
+      --text-mid:      #79776f;
+      --text-dim:      #c2bfb4;
+      --border:        #e3e1d8;
+      --border-strong: #cdcabd;
+      --accent:        #1B1BD1;
+      --accent-hover:  #1414b0;
+      --scanline:      rgba(0,0,0,.025);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 32px 20px;
+      transition: background 0.18s, color 0.18s;
+    }
+
+    .inv-wrap { max-width: 880px; margin: 0 auto; }
+
+    /* ── Controls (screen only) ── */
+    .inv-ctrl {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 22px;
+      gap: 16px;
+    }
+
+    .inv-ctrl-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .inv-ctrl-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .inv-back {
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.18s;
+    }
+    .inv-back:hover { color: var(--text-mid); }
+
+    .inv-status-badge {
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border: 1px solid currentColor;
+    }
+
+    .inv-status-select {
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border: 1px solid currentColor;
+      background: var(--bg-card);
+      color: inherit;
+      cursor: pointer;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      padding: 12px 18px;
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      z-index: 500;
+      transform: translateY(8px);
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    /* Theme toggle */
+    .inv-theme-toggle {
+      display: flex;
+      border: 1px solid var(--border);
+    }
+
+    .inv-theme-btn {
+      font-family: 'VT323', monospace;
+      font-size: 15px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: var(--bg);
+      border: none;
+      padding: 6px 14px 4px;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+    }
+    .inv-theme-btn + .inv-theme-btn { border-left: 1px solid var(--border); }
+    .inv-theme-btn:hover:not(.active) { color: var(--text-mid); }
+    .inv-theme-btn.active { background: var(--accent); color: #fff; }
+
+    .btn-print {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      letter-spacing: .12em;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 26px 5px;
+      cursor: pointer;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-print:hover { background: var(--accent-hover); }
+
+    .btn-edit, .btn-save, .btn-cancel {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      letter-spacing: .12em;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      padding: 7px 22px 4px;
+      cursor: pointer;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.18s, color 0.18s, border-color 0.18s;
+    }
+    .btn-edit:hover, .btn-cancel:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-save { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-save:hover { background: var(--accent-hover); }
+
+    /* ── Inline edit fields ── */
+    .inv-edit-input, .inv-edit-select, .inv-edit-textarea {
+      font: inherit;
+      color: inherit;
+      letter-spacing: inherit;
+      background: transparent;
+      border: none;
+      border-bottom: 1px dashed var(--accent);
+      padding: 0 0 1px;
+      width: 100%;
+      transition: background 0.18s;
+    }
+    .inv-edit-input:focus, .inv-edit-select:focus, .inv-edit-textarea:focus {
+      outline: none;
+      background: var(--bg-hover);
+    }
+    .inv-edit-input.td-r, select.inv-edit-select { text-align: right; }
+    .inv-edit-textarea { resize: vertical; min-height: 50px; line-height: 1.6; }
+
+    .inv-items tbody td.td-action {
+      width: 36px;
+      padding: 15px 12px;
+      text-align: center;
+    }
+
+    .inv-item-remove {
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      background: transparent;
+      border: 1px solid var(--border-strong);
+      color: var(--text-dim);
+      cursor: pointer;
+      width: 24px;
+      height: 24px;
+      line-height: 1;
+      transition: color 0.18s, border-color 0.18s;
+    }
+    .inv-item-remove:hover { color: var(--accent); border-color: var(--accent); }
+
+    .inv-add-row {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .inv-add-row button {
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+      letter-spacing: .08em;
+      background: transparent;
+      border: 1px dashed var(--border-strong);
+      color: var(--text-mid);
+      padding: 5px 16px 3px;
+      cursor: pointer;
+      transition: color 0.18s, border-color 0.18s;
+    }
+    .inv-add-row button:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Invoice page ── */
+    .inv-page {
+      background: var(--bg-card);
+      border: 1px solid var(--accent);
+      position: relative;
+      overflow: hidden;
+      transition: background 0.18s;
+    }
+
+    /* Scanline overlay */
+    .inv-page::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px, transparent 3px,
+        var(--scanline) 3px, var(--scanline) 4px
+      );
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    .inv-page > * { position: relative; z-index: 1; }
+
+    /* ── Header ── */
+    .inv-hdr {
+      padding: 26px 32px 22px;
+      background: var(--bg-alt);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .inv-hdr-accent {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+    }
+
+    .inv-name {
+      font-family: 'VT323', monospace;
+      font-size: 46px;
+      color: var(--text-strong);
+      letter-spacing: .06em;
+      line-height: 1;
+    }
+
+    .inv-doc-type {
+      font-size: 10px;
+      letter-spacing: .34em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+
+    .inv-hdr-right { text-align: right; }
+
+    .inv-number {
+      font-family: 'VT323', monospace;
+      font-size: 30px;
+      letter-spacing: .12em;
+      color: var(--accent);
+    }
+
+    .inv-num-label {
+      font-size: 9px;
+      letter-spacing: .26em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-top: 5px;
+    }
+
+    /* ── Info strip ── */
+    .inv-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .inv-strip-cell {
+      padding: 13px 20px;
+      border-right: 1px solid var(--border);
+    }
+    .inv-strip-cell:last-child { border-right: none; }
+
+    .inv-strip-lbl {
+      font-size: 9px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+    }
+
+    .inv-strip-val {
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      color: var(--text);
+      letter-spacing: .03em;
+    }
+
+    /* ── Parties ── */
+    .inv-parties {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .inv-party { padding: 20px 28px; }
+    .inv-party + .inv-party { border-left: 1px solid var(--border); }
+
+    .inv-party-lbl {
+      font-size: 9px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+
+    .inv-party-name {
+      font-family: 'VT323', monospace;
+      font-size: 26px;
+      color: var(--text-strong);
+      letter-spacing: .02em;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .inv-party-info {
+      font-size: 12px;
+      color: var(--text-mid);
+      line-height: 1.78;
+    }
+
+    /* ── Line items ── */
+    .inv-items-section { border-bottom: 1px solid var(--border); }
+
+    .inv-items { width: 100%; border-collapse: collapse; }
+
+    .inv-items thead tr {
+      background: var(--bg-alt);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .inv-items thead th {
+      font-size: 9px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-weight: 400;
+      padding: 10px 24px;
+      text-align: left;
+    }
+
+    .inv-items thead th.th-r { text-align: right; }
+
+    .inv-items tbody td {
+      padding: 15px 24px;
+      font-size: 13px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .inv-items tbody tr:last-child td { border-bottom: none; }
+
+    .inv-items td.td-r  { text-align: right; }
+    .inv-items td.td-vt {
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      color: var(--text-strong);
+    }
+
+    .inv-items tbody tr:hover td { background: var(--bg-hover); }
+
+    /* ── Totals ── */
+    .inv-totals {
+      padding: 20px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 9px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .inv-tot-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      width: 340px;
+      gap: 16px;
+    }
+
+    .inv-tot-lbl {
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text-mid);
+    }
+
+    .inv-tot-amt {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      color: var(--text);
+      min-width: 140px;
+      text-align: right;
+    }
+
+    .inv-tot-final {
+      border-top: 1px solid var(--border-strong);
+      padding-top: 11px;
+      margin-top: 3px;
+      width: 340px;
+    }
+
+    .inv-tot-final .inv-tot-lbl {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .24em;
+      color: var(--text-strong);
+    }
+
+    .inv-tot-final .inv-tot-amt {
+      font-size: 40px;
+      color: var(--accent);
+      letter-spacing: .04em;
+    }
+
+    /* ── Payment info ── */
+    .inv-payment {
+      padding: 20px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .inv-pay-lbl {
+      font-size: 9px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    .inv-pay-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 5px 22px;
+      align-items: baseline;
+    }
+
+    .inv-pay-key {
+      font-size: 9px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    .inv-pay-val {
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      color: var(--text);
+      letter-spacing: .02em;
+    }
+
+    .inv-thanks {
+      font-size: 11px;
+      letter-spacing: .14em;
+      color: var(--text-dim);
+      padding-bottom: 4px;
+      align-self: flex-end;
+    }
+
+    /* ── Footer ── */
+    .inv-ftr {
+      background: var(--bg-alt);
+      border-top: 1px solid var(--border);
+      padding: 8px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .inv-ftr span {
+      font-size: 9px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    /* ── Print (always paper-style, regardless of theme) ── */
+    @media print {
+      @page { margin: 12mm; }
+
+      body {
+        background: white;
+        color: black;
+        padding: 0;
+        font-size: 12px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .inv-ctrl { display: none !important; }
+
+      .inv-page {
+        background: white;
+        border: 1px solid #bbb;
+        overflow: visible;
+      }
+
+      .inv-page::after { display: none; }
+
+      .inv-hdr-accent { position: static; }
+
+      .inv-hdr {
+        background: white;
+        border-bottom: 2px solid black;
+      }
+
+      .inv-hdr-accent { background: black; }
+
+      .inv-name { color: black; }
+      .inv-doc-type { color: #777; }
+      .inv-number { color: black; }
+      .inv-num-label { color: #aaa; }
+
+      .inv-strip { border-bottom: 1px solid #d0d0d0; }
+      .inv-strip-cell { border-right: 1px solid #d0d0d0; }
+      .inv-strip-lbl { color: #888; }
+      .inv-strip-val { color: black; }
+
+      .inv-parties { border-bottom: 1px solid #d0d0d0; }
+      .inv-party + .inv-party { border-left: 1px solid #d0d0d0; }
+      .inv-party-lbl { color: #888; }
+      .inv-party-name { color: black; }
+      .inv-party-info { color: #555; }
+
+      .inv-items-section { border-bottom: 1px solid #d0d0d0; }
+      .inv-items thead tr { background: #f5f5f5; }
+      .inv-items thead th { color: #888; border-bottom: 1px solid #d0d0d0; }
+      .inv-items tbody td { color: black; border-bottom: 1px solid #ebebeb; }
+      .inv-items td.td-vt { color: black; }
+      .inv-items tbody tr:hover td { background: transparent; }
+
+      .inv-totals { border-bottom: 1px solid #d0d0d0; }
+      .inv-tot-lbl { color: #888; }
+      .inv-tot-amt { color: black; }
+      .inv-tot-final { border-top: 1px solid #aaa; }
+      .inv-tot-final .inv-tot-lbl { color: black; }
+      .inv-tot-final .inv-tot-amt { color: black; font-size: 38px; }
+
+      .inv-payment { border-bottom: 1px solid #d0d0d0; }
+      .inv-pay-lbl { color: #888; }
+      .inv-pay-key { color: #888; }
+      .inv-pay-val { color: black; }
+      .inv-thanks { color: #888; }
+
+      .inv-ftr { background: white; border-top: 1px solid #e0e0e0; }
+      .inv-ftr span { color: #aaa; }
+
+      .inv-edit-input, .inv-edit-select, .inv-edit-textarea { border-bottom: none; }
+      .td-action, .inv-add-row { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="inv-wrap">
+
+    <div class="inv-ctrl">
+      <div class="inv-ctrl-left">
+        <a class="inv-back" href="invoices.html">← Invoices</a>
+        <span id="status-badge-wrap"><span class="inv-status-badge" id="status-badge"></span></span>
+      </div>
+      <div class="inv-ctrl-right" id="ctrl-right">
+        <div class="inv-theme-toggle">
+          <button class="inv-theme-btn" id="theme-btn-dark" onclick="setThemeAndRefresh('dark')">Dark</button>
+          <button class="inv-theme-btn" id="theme-btn-light" onclick="setThemeAndRefresh('light')">Light</button>
+        </div>
+        <button class="btn-edit" id="btn-edit" onclick="enterEdit()">✎ &nbsp;EDIT</button>
+        <button class="btn-cancel" id="btn-cancel" onclick="cancelEdit()" style="display:none">✕ &nbsp;CANCEL</button>
+        <button class="btn-save" id="btn-save" onclick="saveInvoiceEdits()" style="display:none">💾 &nbsp;SAVE</button>
+        <button class="btn-print" id="btn-print" onclick="window.print()">⎙ &nbsp;PRINT / SAVE PDF</button>
+      </div>
+    </div>
+
+    <div class="inv-page" id="inv-page">
+      <div style="padding:60px;text-align:center;color:var(--text-dim);font-size:14px">Loading…</div>
+    </div>
+
+  </div>
+
+  <script src="js/db.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search)
+    const id = params.get('id')
+
+    seedIfEmpty()
+
+    function setThemeAndRefresh(theme) {
+      setTheme(theme)
+      updateThemeButtons()
+    }
+
+    function updateThemeButtons() {
+      const t = getTheme()
+      document.getElementById('theme-btn-dark').classList.toggle('active', t === 'dark')
+      document.getElementById('theme-btn-light').classList.toggle('active', t === 'light')
+    }
+    updateThemeButtons()
+
+    const STATUS_COLORS = {
+      draft:     '#666',
+      sent:      '#9A6B1E',
+      paid:      '#3A6E48',
+      cancelled: '#8A2B2B',
+    }
+
+    function fmtD(str) {
+      if (!str) return '—'
+      const d = new Date(str + 'T12:00:00')
+      return d.toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' })
+    }
+
+    function curSym(code) {
+      return { JPY:'¥', EUR:'€', USD:'$', GBP:'£', KRW:'₩', CNY:'¥' }[code] || code
+    }
+
+    let currentInv = null
+    let editMode   = false
+    let editState  = null
+
+    function emptyItem() { return { description: '', qty: 1, price: 0 } }
+
+    function calcTotals(items) {
+      const subtotal = items.reduce((s, it) => s + ((Number(it.qty) || 1) * (Number(it.price) || 0)), 0)
+      const tax = Math.round(subtotal * 0.1)
+      return { subtotal, tax, total: subtotal + tax }
+    }
+
+    if (!id) {
+      document.getElementById('inv-page').innerHTML =
+        '<div style="padding:60px;text-align:center;color:var(--text-dim)">No invoice ID specified. <a href="invoices.html" style="color:var(--accent)">← Back</a></div>'
+      document.getElementById('ctrl-right').style.display = 'none'
+    } else {
+      const inv = getInvoiceById(id)
+      if (!inv) {
+        document.getElementById('inv-page').innerHTML =
+          '<div style="padding:60px;text-align:center;color:var(--text-dim)">Invoice not found. <a href="invoices.html" style="color:var(--accent)">← Back</a></div>'
+        document.getElementById('ctrl-right').style.display = 'none'
+      } else {
+        currentInv = inv
+        document.title = 'Invoice ' + (inv.number || id) + ' — Enzo Piquet'
+        renderStatusBadge()
+        render(currentInv)
+      }
+    }
+
+    function renderStatusBadge() {
+      const wrap = document.getElementById('status-badge-wrap')
+      if (editMode) {
+        const status = editState.status
+        wrap.innerHTML = `<select class="inv-status-select" id="status-select" onchange="onStatusChange(this)" style="color:${STATUS_COLORS[status] || '#666'};border-color:${STATUS_COLORS[status] || '#666'}">
+          ${['draft','sent','paid','cancelled'].map(s => `<option value="${s}" ${s === status ? 'selected' : ''}>${s}</option>`).join('')}
+        </select>`
+      } else {
+        const status = currentInv.status || 'draft'
+        wrap.innerHTML = `<span class="inv-status-badge" id="status-badge" style="color:${STATUS_COLORS[status] || '#666'};border-color:${STATUS_COLORS[status] || '#666'}">${escHtml(status)}</span>`
+      }
+    }
+
+    function onStatusChange(sel) {
+      editState.status = sel.value
+      sel.style.color = STATUS_COLORS[sel.value] || '#666'
+      sel.style.borderColor = STATUS_COLORS[sel.value] || '#666'
+    }
+
+    function setCtrlButtons() {
+      document.getElementById('btn-edit').style.display   = editMode ? 'none' : ''
+      document.getElementById('btn-print').style.display  = editMode ? 'none' : ''
+      document.getElementById('btn-cancel').style.display = editMode ? '' : 'none'
+      document.getElementById('btn-save').style.display   = editMode ? '' : 'none'
+    }
+
+    function enterEdit() {
+      const items = (Array.isArray(currentInv.items) ? currentInv.items : []).filter(it => it.description && it.description.trim())
+      editState = {
+        number:  currentInv.number  || '',
+        dueDate: currentInv.dueDate || '',
+        status:  currentInv.status  || 'draft',
+        notes:   currentInv.notes   || '',
+        items:   items.length > 0 ? items.map(it => ({ description: it.description, qty: Number(it.qty) || 1, price: Number(it.price) || 0 })) : [emptyItem()],
+      }
+      editMode = true
+      setCtrlButtons()
+      renderStatusBadge()
+      render(currentInv)
+    }
+
+    function cancelEdit() {
+      editMode  = false
+      editState = null
+      setCtrlButtons()
+      renderStatusBadge()
+      render(currentInv)
+    }
+
+    function saveInvoiceEdits() {
+      const items = editState.items
+        .map(it => ({ description: (it.description || '').trim(), qty: Number(it.qty) || 1, price: Number(it.price) || 0 }))
+        .filter(it => it.description)
+
+      const changes = {
+        number:  editState.number.trim(),
+        dueDate: editState.dueDate || null,
+        status:  editState.status,
+        notes:   editState.notes.trim(),
+        items,
+        amount: items.length > 0 ? calcTotals(items).subtotal : (Number(currentInv.amount) || 0),
+      }
+
+      updateInvoice(id, changes)
+      currentInv = getInvoiceById(id)
+      editMode  = false
+      editState = null
+      document.title = 'Invoice ' + (currentInv.number || id) + ' — Enzo Piquet'
+      setCtrlButtons()
+      renderStatusBadge()
+      render(currentInv)
+      showToast('Invoice saved')
+    }
+
+    function updateItemField(idx, field, value) {
+      editState.items[idx][field] = value
+      const it  = editState.items[idx]
+      const amt = (Number(it.qty) || 1) * (Number(it.price) || 0)
+      const amtEl = document.getElementById('item-amt-' + idx)
+      if (amtEl) amtEl.textContent = fmtMoney(amt)
+      updateTotalsDisplay()
+    }
+
+    function updateTotalsDisplay() {
+      const { subtotal, tax, total } = calcTotals(editState.items)
+      document.getElementById('tot-subtotal').textContent = fmtMoney(subtotal)
+      document.getElementById('tot-tax').textContent      = fmtMoney(tax)
+      document.getElementById('tot-total').textContent    = fmtMoney(total)
+    }
+
+    function addItemRow() {
+      editState.items.push(emptyItem())
+      render(currentInv)
+    }
+
+    function removeItemRow(idx) {
+      editState.items.splice(idx, 1)
+      if (editState.items.length === 0) editState.items.push(emptyItem())
+      render(currentInv)
+    }
+
+    function render(inv) {
+      const client  = getClientById(inv.clientId) || {}
+      const project = getProjectById(inv.projectId) || {}
+      const items   = (Array.isArray(inv.items) ? inv.items : []).filter(it => it.description && it.description.trim())
+
+      let subtotal, tax, total
+      if (editMode) {
+        ({ subtotal, tax, total } = calcTotals(editState.items))
+      } else if (items.length > 0) {
+        ({ subtotal, tax, total } = calcTotals(items))
+      } else {
+        subtotal = Number(inv.amount) || 0
+        tax      = Math.round(subtotal * 0.1)
+        total    = subtotal + tax
+      }
+
+      const cur     = getCurrency()
+      const prodDate = project.date ? fmtD(project.date) : fmtD(inv.date)
+      const jobName  = project.title || (inv.number || '—')
+
+      // Client address lines
+      const addrLines = [
+          client.company,
+          ...(client.address ? client.address.split('\n').map(l => l.trim()).filter(Boolean) : []),
+          client.location,
+          client.phone,
+          client.name,
+        ]
+        .filter(Boolean)
+        .map(l => escHtml(l))
+        .join('<br>')
+
+      // Invoice number field
+      const numberHtml = editMode
+        ? `<input type="text" class="inv-edit-input" value="${escHtml(editState.number)}" placeholder="INV-0000" style="font-family:'VT323',monospace;font-size:30px;letter-spacing:.12em;color:var(--accent);text-align:right" oninput="editState.number=this.value">`
+        : escHtml(inv.number || '—')
+
+      // Due date field
+      const dueDateHtml = editMode
+        ? `<input type="date" class="inv-edit-input" value="${escHtml(editState.dueDate || '')}" oninput="editState.dueDate=this.value">`
+        : fmtD(inv.dueDate)
+
+      // Header columns for line items table
+      const headerCols = `
+        <th style="width:${editMode ? '44%' : '50%'}">Description · 内容</th>
+        <th style="width:12%">Qty · 数量</th>
+        <th class="th-r" style="width:20%">Unit · 単価</th>
+        <th class="th-r" style="width:18%">Amount</th>
+        ${editMode ? '<th style="width:6%"></th>' : ''}
+      `
+
+      // Line items rows
+      let itemRows
+      if (editMode) {
+        itemRows = editState.items.map((it, idx) => {
+          const amt = (Number(it.qty) || 1) * (Number(it.price) || 0)
+          return `<tr>
+            <td><input type="text" class="inv-edit-input" value="${escHtml(it.description)}" placeholder="Description" oninput="editState.items[${idx}].description=this.value"></td>
+            <td><input type="number" class="inv-edit-input" min="1" step="1" value="${Number(it.qty) || 1}" oninput="updateItemField(${idx},'qty',this.value)"></td>
+            <td class="td-r td-vt"><input type="number" class="inv-edit-input td-r" min="0" step="any" value="${Number(it.price) || 0}" oninput="updateItemField(${idx},'price',this.value)"></td>
+            <td class="td-r td-vt" id="item-amt-${idx}">${fmtMoney(amt)}</td>
+            <td class="td-action"><button class="inv-item-remove" onclick="removeItemRow(${idx})" title="Remove line">✕</button></td>
+          </tr>`
+        }).join('')
+      } else {
+        itemRows = items.length > 0
+          ? items.map(it => {
+              const amt = (Number(it.qty) || 1) * (Number(it.price) || 0)
+              return `<tr>
+                <td>${escHtml(it.description)}</td>
+                <td>${Number(it.qty) || 1}</td>
+                <td class="td-r td-vt">${fmtMoney(Number(it.price) || 0)}</td>
+                <td class="td-r td-vt">${fmtMoney(amt)}</td>
+              </tr>`
+            }).join('')
+          : `<tr><td colspan="4" style="padding:24px;color:var(--text-dim);font-style:italic">No line items added</td></tr>`
+      }
+
+      const addRowHtml = editMode
+        ? `<div class="inv-add-row"><button onclick="addItemRow()">+ Add line</button></div>`
+        : ''
+
+      // Notes section
+      let notesSection
+      if (editMode) {
+        notesSection = `<div style="padding:14px 28px;border-top:1px solid var(--border);font-size:12px;color:var(--text-mid);line-height:1.6">
+             <span style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);display:block;margin-bottom:6px">Notes · 備考</span>
+             <textarea class="inv-edit-textarea" placeholder="Add notes…" oninput="editState.notes=this.value">${escHtml(editState.notes)}</textarea>
+           </div>`
+      } else {
+        notesSection = inv.notes
+          ? `<div style="padding:14px 28px;border-top:1px solid var(--border);font-size:12px;color:var(--text-mid);line-height:1.6">
+               <span style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);display:block;margin-bottom:6px">Notes · 備考</span>
+               ${escHtml(inv.notes)}
+             </div>`
+          : ''
+      }
+
+      document.getElementById('inv-page').innerHTML = `
+
+        <!-- Accent top bar -->
+        <div class="inv-hdr-accent"></div>
+
+        <!-- Header -->
+        <div class="inv-hdr">
+          <div>
+            <div class="inv-name">ENZO PIQUET</div>
+            <div class="inv-doc-type">INVOICE · 請求書</div>
+          </div>
+          <div class="inv-hdr-right">
+            <div class="inv-number">${numberHtml}</div>
+            <div class="inv-num-label">請求番号</div>
+          </div>
+        </div>
+
+        <!-- Info strip -->
+        <div class="inv-strip">
+          <div class="inv-strip-cell">
+            <div class="inv-strip-lbl">Production Date · 撮影日</div>
+            <div class="inv-strip-val">${prodDate}</div>
+          </div>
+          <div class="inv-strip-cell">
+            <div class="inv-strip-lbl">Payment Due · 支払い期限</div>
+            <div class="inv-strip-val">${dueDateHtml}</div>
+          </div>
+          <div class="inv-strip-cell">
+            <div class="inv-strip-lbl">Job · 件名</div>
+            <div class="inv-strip-val" style="font-size:${jobName.length > 16 ? '14px;letter-spacing:.01em' : '20px'}">${escHtml(jobName)}</div>
+          </div>
+          <div class="inv-strip-cell">
+            <div class="inv-strip-lbl">Currency · 通貨</div>
+            <div class="inv-strip-val">${escHtml(cur)} ${curSym(cur)}</div>
+          </div>
+        </div>
+
+        <!-- Parties -->
+        <div class="inv-parties">
+          <div class="inv-party">
+            <div class="inv-party-lbl">Billed To · 請求先</div>
+            <div class="inv-party-name">${escHtml(client.company || client.name || '—')}</div>
+            <div class="inv-party-info">${addrLines || '<span style="color:var(--text-dim)">—</span>'}</div>
+          </div>
+          <div class="inv-party">
+            <div class="inv-party-lbl">From · 発行者</div>
+            <div class="inv-party-name">Enzo Piquet</div>
+            <div class="inv-party-info">
+              〒153-0053<br>
+              東京都目黒区五本木1-2-5<br>
+              五本木フラット301<br>
+              070-9020-0972<br>
+              enzopiquet93@gmail.com
+            </div>
+          </div>
+        </div>
+
+        <!-- Line items -->
+        <div class="inv-items-section">
+          <table class="inv-items">
+            <thead>
+              <tr>${headerCols}</tr>
+            </thead>
+            <tbody>${itemRows}</tbody>
+          </table>
+          ${addRowHtml}
+          ${notesSection}
+        </div>
+
+        <!-- Totals -->
+        <div class="inv-totals">
+          <div class="inv-tot-row">
+            <span class="inv-tot-lbl">Subtotal · 小計</span>
+            <span class="inv-tot-amt" id="tot-subtotal">${fmtMoney(subtotal)}</span>
+          </div>
+          <div class="inv-tot-row">
+            <span class="inv-tot-lbl">Consumption Tax · 消費税 10%</span>
+            <span class="inv-tot-amt" id="tot-tax">${fmtMoney(tax)}</span>
+          </div>
+          <div class="inv-tot-final">
+            <div class="inv-tot-row" style="width:100%">
+              <span class="inv-tot-lbl">TOTAL · 合計</span>
+              <span class="inv-tot-amt" id="tot-total">${fmtMoney(total)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment info -->
+        <div class="inv-payment">
+          <div>
+            <div class="inv-pay-lbl">Payment Information · 支払い情報</div>
+            <div class="inv-pay-grid">
+              <span class="inv-pay-key">Bank · 銀行</span>
+              <span class="inv-pay-val">ゆうちょ銀行</span>
+              <span class="inv-pay-key">Branch · 支店</span>
+              <span class="inv-pay-val">荻窪店 138</span>
+              <span class="inv-pay-key">Account · 口座番号</span>
+              <span class="inv-pay-val">1423655</span>
+              <span class="inv-pay-key">Name · 口座名義</span>
+              <span class="inv-pay-val">ピケ エンゾネルソンアレクサンドル</span>
+            </div>
+          </div>
+          <div class="inv-thanks">お取引ありがとうございます</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="inv-ftr">
+          <span>LIVRE DE QUÊTE · STUDIO MANAGEMENT</span>
+          <span>${fmtD(inv.date)} · ${escHtml((editMode ? editState.number : inv.number) || '')}</span>
+        </div>
+      `
+    }
+  </script>
+</body>
+</html>

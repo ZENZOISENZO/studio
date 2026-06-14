@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var t = localStorage.getItem('ldq_theme') || 'dark'
+      document.documentElement.setAttribute('data-theme', t)
+    })()
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Livre de Quête — Invoices</title>
+  <link rel="stylesheet" href="css/studio.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-name">LIVRE DE QUÊTE</div>
+      <div class="sidebar-logo-sub">Enzo Piquet — Studio</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html">Dashboard</a>
+      <a href="projects.html">Projects <span class="nav-count" id="count-projects">0</span></a>
+      <a href="clients.html">Clients <span class="nav-count" id="count-clients">0</span></a>
+      <a href="invoices.html" class="active">Invoices <span class="nav-count" id="count-invoices">0</span></a>
+      <a href="revenue.html">Revenue</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="calendar.html">Calendar</a>
+      <a href="production.html">Production</a>
+      <a href="quests.html">Quests <span class="nav-count" id="count-quests">0</span></a>
+    </nav>
+    <div class="currency-wrap">
+      <span class="currency-label">Currency</span>
+      <select class="currency-select" id="currency-select" onchange="setCurrencyAndRefresh(this.value)">
+        <option value="JPY">¥ JPY</option>
+        <option value="EUR">€ EUR</option>
+        <option value="USD">$ USD</option>
+        <option value="GBP">£ GBP</option>
+        <option value="KRW">₩ KRW</option>
+        <option value="CNY">¥ CNY</option>
+      </select>
+    </div>
+    <div class="theme-wrap">
+      <span class="currency-label">Theme</span>
+      <div class="theme-toggle">
+        <button class="theme-btn" id="theme-btn-dark" onclick="setThemeAndRefresh('dark')">Dark</button>
+        <button class="theme-btn" id="theme-btn-light" onclick="setThemeAndRefresh('light')">Light</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <a href="../index.html">← Portfolio</a>
+      <p class="copyright">© 2025 Enzo Piquet</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="studio-main">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Invoices</h1>
+        <p class="page-subtitle" id="inv-count-sub"></p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary" onclick="openModal()">+ New document</button>
+      </div>
+    </div>
+
+    <div class="filter-bar" id="filter-bar">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="draft">Draft</button>
+      <button class="filter-btn" data-filter="sent">Sent</button>
+      <button class="filter-btn" data-filter="paid">Paid</button>
+      <button class="filter-btn" data-filter="cancelled">Cancelled</button>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" class="search-input" id="search" placeholder="Search…" oninput="renderTable()">
+    </div>
+
+    <table class="data-table" id="invoices-table">
+      <thead>
+        <tr>
+          <th>Number</th>
+          <th>Client</th>
+          <th>Project</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Due date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="invoices-tbody"></tbody>
+    </table>
+
+    <div id="empty-state" class="empty-state hidden">
+      <div class="empty-state-icon">[  ]</div>
+      <div class="empty-state-title">No documents found</div>
+      <div class="empty-state-sub">Create your first invoice</div>
+    </div>
+
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">New document</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Number</label>
+            <input type="text" class="form-input" id="f-number" placeholder="INV-2026-001">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="f-type">
+              <option value="invoice">Invoice</option>
+              <option value="quote">Quote</option>
+              <option value="contract">Contract</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Client</label>
+            <select class="form-select" id="f-client" onchange="refreshProjects()"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Project</label>
+            <select class="form-select" id="f-project"></select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="f-status">
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="paid">Paid</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Issue date</label>
+            <input type="date" class="form-input" id="f-date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due date</label>
+            <input type="date" class="form-input" id="f-duedate">
+          </div>
+        </div>
+
+        <!-- Line items -->
+        <div style="margin-top:8px;margin-bottom:5px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span class="form-label" style="margin:0">Line items</span>
+            <button class="btn btn-ghost btn-sm" onclick="addItem()" style="font-size:14px;padding:3px 8px">+ Add line</button>
+          </div>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width:55%">Description</th>
+                <th style="width:12%">Qty</th>
+                <th style="width:20%">Unit price</th>
+                <th style="width:10%;text-align:right">Total</th>
+                <th class="td-remove"></th>
+              </tr>
+            </thead>
+            <tbody id="items-tbody"></tbody>
+          </table>
+          <div class="invoice-total-row">
+            <span class="invoice-total-label">Subtotal</span>
+            <span class="invoice-total-value" id="items-total">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btn-delete" onclick="deleteCurrentInvoice()" style="display:none">Delete</button>
+        <div class="modal-footer-right">
+          <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-secondary" id="btn-gen-inv" onclick="generateInvoice()" style="display:none">⎙ Generate Invoice</button>
+          <button class="btn btn-primary" onclick="saveInvoice()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script>
+    seedIfEmpty()
+
+    let currentFilter = 'all'
+
+    function setThemeAndRefresh(theme) {
+      setTheme(theme)
+      updateThemeButtons()
+    }
+
+    function updateThemeButtons() {
+      const t = getTheme()
+      document.getElementById('theme-btn-dark').classList.toggle('active', t === 'dark')
+      document.getElementById('theme-btn-light').classList.toggle('active', t === 'light')
+    }
+    updateThemeButtons()
+
+    document.getElementById('currency-select').value = getCurrency()
+
+    function setCurrencyAndRefresh(code) {
+      setCurrency(code)
+      renderTable()
+      updateTotal()
+    }
+
+    function openPrint(id) {
+      window.open('invoice-print.html?id=' + id, '_blank')
+    }
+
+    function generateInvoice() {
+      const id = document.getElementById('edit-id').value
+      if (id) openPrint(id)
+    }
+
+    function updateCounts() {
+      document.getElementById('count-projects').textContent = getProjects().length
+      document.getElementById('count-clients').textContent  = getClients().length
+      document.getElementById('count-invoices').textContent = getInvoices().length
+      document.getElementById('count-quests').textContent = getQuests().filter(q => !q.done).length
+    }
+    updateCounts()
+
+    document.getElementById('filter-bar').addEventListener('click', e => {
+      const btn = e.target.closest('.filter-btn')
+      if (!btn) return
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      currentFilter = btn.dataset.filter
+      renderTable()
+    })
+
+    const statusLabels = { draft:'Draft', sent:'Sent', paid:'Paid', cancelled:'Cancelled' }
+    const typeLabels   = { invoice:'Invoice', quote:'Quote', contract:'Contract' }
+
+    function getProjectTitle(id) {
+      const p = getProjectById(id)
+      return p ? p.title : '—'
+    }
+
+    function renderTable() {
+      const q = document.getElementById('search').value.toLowerCase()
+      let invoices = getInvoices()
+
+      if (currentFilter !== 'all') invoices = invoices.filter(i => i.status === currentFilter)
+      if (q) invoices = invoices.filter(i =>
+        (i.number || '').toLowerCase().includes(q) ||
+        getClientName(i.clientId).toLowerCase().includes(q)
+      )
+
+      const total = getInvoices().length
+      document.getElementById('inv-count-sub').textContent =
+        `${total} document${total !== 1 ? 's' : ''}`
+
+      const tbody = document.getElementById('invoices-tbody')
+      const empty = document.getElementById('empty-state')
+
+      if (invoices.length === 0) {
+        tbody.innerHTML = ''
+        empty.classList.remove('hidden')
+        return
+      }
+
+      empty.classList.add('hidden')
+      tbody.innerHTML = invoices.map(i => {
+        const od     = isOverdue(i)
+        const rowCls = od ? ' class="row-overdue"' : ''
+        const dueTd  = od
+          ? `<td>${fmtDate(i.dueDate)} <span class="badge-overdue">${daysOverdue(i)}d</span></td>`
+          : `<td>${fmtDate(i.dueDate)}</td>`
+        return `
+          <tr${rowCls} onclick="openModal('${i.id}')">
+            <td class="td-num">${i.number || '—'}</td>
+            <td class="td-main">${getClientName(i.clientId)}</td>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${getProjectTitle(i.projectId)}</td>
+            <td><span class="badge badge-${i.type}">${typeLabels[i.type] || i.type}</span></td>
+            <td class="td-amount">${fmtMoney(i.amount)}</td>
+            <td><span class="badge badge-${i.status}">${statusLabels[i.status] || i.status}</span></td>
+            <td>${fmtDate(i.date)}</td>
+            ${dueTd}
+            <td class="td-actions" onclick="event.stopPropagation()">
+              <button class="btn btn-ghost btn-sm" onclick="openModal('${i.id}')">Edit</button>
+              <button class="btn btn-ghost btn-sm" onclick="openPrint('${i.id}')" title="Generate invoice PDF">⎙</button>
+            </td>
+          </tr>`
+      }).join('')
+    }
+
+    renderTable()
+
+    // ─── Modal ─────────────────────────────────────────────
+    let items = []
+
+    function refreshProjects() {
+      const clientId = document.getElementById('f-client').value
+      const sel = document.getElementById('f-project')
+      const projs = clientId ? getProjects().filter(p => p.clientId === clientId) : getProjects()
+      sel.innerHTML = '<option value="">— No project —</option>' +
+        projs.map(p => `<option value="${p.id}">${p.title}</option>`).join('')
+    }
+
+    function populateClients(selectedId) {
+      const sel = document.getElementById('f-client')
+      sel.innerHTML = '<option value="">— No client —</option>' +
+        getClients().map(c => `<option value="${c.id}"${c.id === selectedId ? ' selected' : ''}>${c.name}${c.company ? ` (${c.company})` : ''}</option>`).join('')
+    }
+
+    function openModal(id) {
+      document.getElementById('modal-title').textContent = id ? 'Edit document' : 'New document'
+      document.getElementById('btn-delete').style.display   = id ? '' : 'none'
+      document.getElementById('btn-gen-inv').style.display  = id ? '' : 'none'
+
+      const today = new Date().toISOString().slice(0, 10)
+      const due30 = new Date(Date.now() + 30 * 86400e3).toISOString().slice(0, 10)
+
+      if (id) {
+        const inv = getInvoiceById(id)
+        if (!inv) return
+        document.getElementById('edit-id').value   = id
+        document.getElementById('f-number').value  = inv.number || ''
+        document.getElementById('f-type').value    = inv.type || 'invoice'
+        document.getElementById('f-status').value  = inv.status || 'draft'
+        document.getElementById('f-date').value    = inv.date || today
+        document.getElementById('f-duedate').value = inv.dueDate || due30
+        populateClients(inv.clientId)
+        document.getElementById('f-client').value  = inv.clientId || ''
+        refreshProjects()
+        document.getElementById('f-project').value = inv.projectId || ''
+        items = (inv.items || []).map(it => ({ ...it }))
+      } else {
+        document.getElementById('edit-id').value   = ''
+        document.getElementById('f-number').value  = nextInvoiceNumber()
+        document.getElementById('f-type').value    = 'invoice'
+        document.getElementById('f-status').value  = 'draft'
+        document.getElementById('f-date').value    = today
+        document.getElementById('f-duedate').value = due30
+        populateClients('')
+        refreshProjects()
+        items = [{ description: '', qty: 1, price: 0 }]
+      }
+
+      renderItems()
+      document.getElementById('modal-overlay').classList.add('open')
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open')
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modal-overlay')) closeModal()
+    }
+
+    function renderItems() {
+      document.getElementById('items-tbody').innerHTML = items.map((it, i) => `
+        <tr>
+          <td><input type="text" value="${escHtml(it.description)}" placeholder="Description" oninput="items[${i}].description=this.value"></td>
+          <td><input type="number" value="${it.qty}" min="1" style="width:60px" oninput="items[${i}].qty=Number(this.value)||1;updateTotal()"></td>
+          <td><input type="number" value="${it.price}" min="0" step="any" oninput="items[${i}].price=parseFloat(this.value)||0;updateTotal()"></td>
+          <td style="text-align:right;font-family:'VT323',monospace;font-size:16px;color:var(--text);white-space:nowrap">${fmtMoney((it.qty||1)*(it.price||0))}</td>
+          <td class="td-remove"><button class="item-remove" onclick="removeItem(${i})">✕</button></td>
+        </tr>`).join('')
+      updateTotal()
+    }
+
+    function escHtml(s) {
+      return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    }
+
+    function addItem() {
+      items.push({ description: '', qty: 1, price: 0 })
+      renderItems()
+    }
+
+    function removeItem(i) {
+      items.splice(i, 1)
+      renderItems()
+    }
+
+    function updateTotal() {
+      const total = items.reduce((s, it) => s + (it.qty || 1) * (it.price || 0), 0)
+      document.getElementById('items-total').textContent = fmtMoney(total)
+    }
+
+    function saveInvoice() {
+      const clientId = document.getElementById('f-client').value
+      if (!clientId) { document.getElementById('f-client').focus(); return }
+
+      const total = items.reduce((s, it) => s + (it.qty || 1) * (it.price || 0), 0)
+
+      const data = {
+        number:    document.getElementById('f-number').value.trim(),
+        type:      document.getElementById('f-type').value,
+        clientId,
+        projectId: document.getElementById('f-project').value,
+        status:    document.getElementById('f-status').value,
+        date:      document.getElementById('f-date').value,
+        dueDate:   document.getElementById('f-duedate').value,
+        amount:    total,
+        items:     items.filter(it => it.description.trim()),
+      }
+
+      const id = document.getElementById('edit-id').value
+      if (id) {
+        updateInvoice(id, data)
+        showToast('Document updated')
+      } else {
+        addInvoice(data)
+        showToast('Document created')
+      }
+
+      closeModal()
+      updateCounts()
+      renderTable()
+    }
+
+    function deleteCurrentInvoice() {
+      const id = document.getElementById('edit-id').value
+      if (!id) return
+      if (!confirm('Delete this document?')) return
+      deleteInvoice(id)
+      closeModal()
+      updateCounts()
+      renderTable()
+      showToast('Document deleted')
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal()
+    })
+  </script>
+</body>
+</html>

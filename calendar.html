@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var t = localStorage.getItem('ldq_theme') || 'dark'
+      document.documentElement.setAttribute('data-theme', t)
+    })()
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Livre de Quête — Calendar</title>
+  <link rel="stylesheet" href="css/studio.css">
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-name">LIVRE DE QUÊTE</div>
+      <div class="sidebar-logo-sub">Enzo Piquet — Studio</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html">Dashboard</a>
+      <a href="projects.html">Projects <span class="nav-count" id="count-projects">0</span></a>
+      <a href="clients.html">Clients <span class="nav-count" id="count-clients">0</span></a>
+      <a href="invoices.html">Invoices <span class="nav-count" id="count-invoices">0</span></a>
+      <a href="revenue.html">Revenue</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="calendar.html" class="active">Calendar</a>
+      <a href="production.html">Production</a>
+      <a href="quests.html">Quests <span class="nav-count" id="count-quests">0</span></a>
+    </nav>
+    <div class="currency-wrap">
+      <span class="currency-label">Currency</span>
+      <select class="currency-select" id="currency-select" onchange="setCurrency(this.value)">
+        <option value="JPY">¥ JPY</option>
+        <option value="EUR">€ EUR</option>
+        <option value="USD">$ USD</option>
+        <option value="GBP">£ GBP</option>
+        <option value="KRW">₩ KRW</option>
+        <option value="CNY">¥ CNY</option>
+      </select>
+    </div>
+    <div class="theme-wrap">
+      <span class="currency-label">Theme</span>
+      <div class="theme-toggle">
+        <button class="theme-btn" id="theme-btn-dark" onclick="setThemeAndRefresh('dark')">Dark</button>
+        <button class="theme-btn" id="theme-btn-light" onclick="setThemeAndRefresh('light')">Light</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <a href="../index.html">← Portfolio</a>
+      <p class="copyright">© 2025 Enzo Piquet</p>
+    </div>
+  </aside>
+
+  <main class="studio-main">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Calendar</h1>
+        <p class="page-subtitle" id="cal-subtitle">Shoots · Invoice due dates · Tasks</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary" onclick="goToday()">Today</button>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- Month nav -->
+      <div class="cal-nav">
+        <button class="btn btn-ghost btn-sm" onclick="prevMonth()">← Prev</button>
+        <span class="cal-month-label" id="cal-month-label">—</span>
+        <button class="btn btn-ghost btn-sm" onclick="nextMonth()">Next →</button>
+      </div>
+
+      <!-- Calendar grid -->
+      <div class="cal-grid-wrap">
+        <div class="cal-dow-row">
+          <div class="cal-dow">Mon</div>
+          <div class="cal-dow">Tue</div>
+          <div class="cal-dow">Wed</div>
+          <div class="cal-dow">Thu</div>
+          <div class="cal-dow">Fri</div>
+          <div class="cal-dow">Sat</div>
+          <div class="cal-dow">Sun</div>
+        </div>
+        <div class="cal-days" id="cal-days"></div>
+        <div class="cal-legend">
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:var(--accent)"></div> Shoot
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:var(--warning)"></div> Invoice due
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:var(--danger)"></div> Overdue
+          </div>
+          <div class="cal-legend-item">
+            <div class="cal-legend-dot" style="background:var(--success)"></div> Task due
+          </div>
+        </div>
+      </div>
+
+      <!-- Upcoming list for this month -->
+      <div class="section-block" style="margin-top:20px" id="month-events-block">
+        <div class="section-block-header">
+          <span class="section-block-title" id="month-events-title">Events this month</span>
+          <span style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)" id="month-events-count"></span>
+        </div>
+        <div id="month-events-list"></div>
+        <div id="month-events-empty" class="empty-state hidden">
+          <div class="empty-state-icon">[  ]</div>
+          <div class="empty-state-title">No events this month</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="js/db.js"></script>
+  <script>
+    seedIfEmpty()
+
+    function setThemeAndRefresh(theme) {
+      setTheme(theme)
+      updateThemeButtons()
+    }
+
+    function updateThemeButtons() {
+      const t = getTheme()
+      document.getElementById('theme-btn-dark').classList.toggle('active', t === 'dark')
+      document.getElementById('theme-btn-light').classList.toggle('active', t === 'light')
+    }
+    updateThemeButtons()
+
+    document.getElementById('currency-select').value = getCurrency()
+    document.getElementById('count-projects').textContent = getProjects().length
+    document.getElementById('count-clients').textContent  = getClients().length
+    document.getElementById('count-invoices').textContent = getInvoices().length
+    document.getElementById('count-quests').textContent = getQuests().filter(q => !q.done).length
+
+    const DOW   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+    const MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December']
+
+    const today = new Date()
+    let viewYear  = today.getFullYear()
+    let viewMonth = today.getMonth()  // 0-based
+
+    function goToday() { viewYear = today.getFullYear(); viewMonth = today.getMonth(); render() }
+    function prevMonth() { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear-- } render() }
+    function nextMonth() { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++ } render() }
+
+    function render() {
+      document.getElementById('cal-month-label').textContent =
+        `${MONTHS[viewMonth].toUpperCase()} ${viewYear}`
+      document.getElementById('cal-subtitle').textContent =
+        `${MONTHS[viewMonth]} ${viewYear} · Shoots · Invoice due dates · Tasks`
+
+      const firstDay = new Date(viewYear, viewMonth, 1)
+      const lastDay  = new Date(viewYear, viewMonth + 1, 0)
+      const startDow = (firstDay.getDay() + 6) % 7  // Monday = 0
+
+      const evts = getCalendarMonthEvents(viewYear, viewMonth)
+
+      const isToday = (day) =>
+        viewYear === today.getFullYear() &&
+        viewMonth === today.getMonth() &&
+        day === today.getDate()
+
+      // Build all day cells
+      let cells = []
+
+      // Empty cells before first day
+      for (let i = 0; i < startDow; i++) {
+        cells.push('<div class="cal-day cal-empty"></div>')
+      }
+
+      // Day cells
+      for (let d = 1; d <= lastDay.getDate(); d++) {
+        const dayEvts = evts[d] || []
+        const todayCls = isToday(d) ? ' today' : ''
+        const evtHtml = dayEvts.slice(0, 3).map(e => {
+          const title = escHtml(e.title)
+          return `<div class="cal-event ${e.type}" onclick="event.stopPropagation();location.href='${e.href}'" title="${title}">${title}</div>`
+        }).join('')
+        const more = dayEvts.length > 3
+          ? `<div style="font-size:9px;color:var(--text-dim);padding:2px 3px">+${dayEvts.length - 3} more</div>`
+          : ''
+        cells.push(`
+          <div class="cal-day${todayCls}">
+            <div class="cal-day-num">${d}</div>
+            <div class="cal-events">${evtHtml}${more}</div>
+          </div>`)
+      }
+
+      // Pad to complete grid rows
+      const total = startDow + lastDay.getDate()
+      const remainder = total % 7 === 0 ? 0 : 7 - (total % 7)
+      for (let i = 0; i < remainder; i++) {
+        cells.push('<div class="cal-day cal-empty"></div>')
+      }
+
+      document.getElementById('cal-days').innerHTML = cells.join('')
+
+      renderMonthEvents(evts, lastDay.getDate())
+    }
+
+    function renderMonthEvents(evts, maxDay) {
+      const list  = []
+      const typeLabels = { shoot: 'Shoot', 'invoice-due': 'Invoice due', due: 'Invoice due', overdue: 'Overdue', task: 'Task due' }
+
+      for (let d = 1; d <= maxDay; d++) {
+        if (!evts[d]) continue
+        evts[d].forEach(e => {
+          const dateStr = `${String(viewYear)}-${String(viewMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+          list.push({ day: d, dateStr, ...e })
+        })
+      }
+
+      const countEl = document.getElementById('month-events-count')
+      const listEl  = document.getElementById('month-events-list')
+      const emptyEl = document.getElementById('month-events-empty')
+      const titleEl = document.getElementById('month-events-title')
+
+      titleEl.textContent = `Events — ${MONTHS[viewMonth]} ${viewYear}`
+      countEl.textContent = list.length + ' event' + (list.length !== 1 ? 's' : '')
+
+      if (list.length === 0) {
+        listEl.innerHTML = ''
+        emptyEl.classList.remove('hidden')
+        return
+      }
+
+      emptyEl.classList.add('hidden')
+      listEl.innerHTML = `<div style="padding:0 var(--pad)">` + list.map(e => {
+        const typeColors = { shoot:'var(--accent)', 'invoice-due':'var(--warning)', due:'var(--warning)', overdue:'var(--danger)', task:'var(--success)' }
+        const color = typeColors[e.type] || 'var(--text-dim)'
+        const amtStr = e.amount ? ` — ${fmtMoney(e.amount)}` : ''
+        return `
+          <div style="display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--border);cursor:pointer"
+            onclick="location.href='${e.href}'">
+            <span style="font-family:'VT323',monospace;font-size:22px;color:var(--text-dim);width:26px;text-align:center">${e.day}</span>
+            <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.title)}</div>
+              <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-top:2px">${typeLabels[e.type] || e.type}${e.sub ? ' · ' + escHtml(e.sub) : ''}${amtStr}</div>
+            </div>
+          </div>`
+      }).join('') + `</div>`
+    }
+
+    render()
+  </script>
+</body>
+</html>

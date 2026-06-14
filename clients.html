@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function () {
+      var t = localStorage.getItem('ldq_theme') || 'dark'
+      document.documentElement.setAttribute('data-theme', t)
+    })()
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Livre de Quête — Clients</title>
+  <link rel="stylesheet" href="css/studio.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-name">LIVRE DE QUÊTE</div>
+      <div class="sidebar-logo-sub">Enzo Piquet — Studio</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html">Dashboard</a>
+      <a href="projects.html">Projects <span class="nav-count" id="count-projects">0</span></a>
+      <a href="clients.html" class="active">Clients <span class="nav-count" id="count-clients">0</span></a>
+      <a href="invoices.html">Invoices <span class="nav-count" id="count-invoices">0</span></a>
+      <a href="revenue.html">Revenue</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="calendar.html">Calendar</a>
+      <a href="production.html">Production</a>
+      <a href="quests.html">Quests <span class="nav-count" id="count-quests">0</span></a>
+    </nav>
+    <div class="currency-wrap">
+      <span class="currency-label">Currency</span>
+      <select class="currency-select" id="currency-select" onchange="setCurrencyAndRefresh(this.value)">
+        <option value="JPY">¥ JPY</option>
+        <option value="EUR">€ EUR</option>
+        <option value="USD">$ USD</option>
+        <option value="GBP">£ GBP</option>
+        <option value="KRW">₩ KRW</option>
+        <option value="CNY">¥ CNY</option>
+      </select>
+    </div>
+    <div class="theme-wrap">
+      <span class="currency-label">Theme</span>
+      <div class="theme-toggle">
+        <button class="theme-btn" id="theme-btn-dark" onclick="setThemeAndRefresh('dark')">Dark</button>
+        <button class="theme-btn" id="theme-btn-light" onclick="setThemeAndRefresh('light')">Light</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <a href="../index.html">← Portfolio</a>
+      <p class="copyright">© 2025 Enzo Piquet</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="studio-main">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Clients</h1>
+        <p class="page-subtitle" id="clients-count-sub"></p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-primary" onclick="openModal()">+ New client</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" class="search-input" id="search" placeholder="Search clients…" oninput="renderCards()">
+    </div>
+
+    <div class="page-content">
+      <div class="clients-grid" id="clients-grid"></div>
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-state-icon">[  ]</div>
+        <div class="empty-state-title">No clients found</div>
+        <div class="empty-state-sub">Add your first client</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">New client</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Name *</label>
+            <input type="text" class="form-input" id="f-name" placeholder="Contact name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Company</label>
+            <input type="text" class="form-input" id="f-company" placeholder="Company name">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="f-email" placeholder="email@example.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input type="text" class="form-input" id="f-phone" placeholder="+81 90-0000-0000">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">City / Country</label>
+          <input type="text" class="form-input" id="f-location" placeholder="Tokyo, Japan">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <textarea class="form-textarea" id="f-address" placeholder="Street address, building, floor, postal code…" style="min-height:60px"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="f-notes" placeholder="Useful info, context, projects…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btn-delete" onclick="deleteCurrentClient()" style="display:none">Delete</button>
+        <div class="modal-footer-right">
+          <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveClient()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script>
+    seedIfEmpty()
+
+    function setThemeAndRefresh(theme) {
+      setTheme(theme)
+      updateThemeButtons()
+    }
+
+    function updateThemeButtons() {
+      const t = getTheme()
+      document.getElementById('theme-btn-dark').classList.toggle('active', t === 'dark')
+      document.getElementById('theme-btn-light').classList.toggle('active', t === 'light')
+    }
+    updateThemeButtons()
+
+    document.getElementById('currency-select').value = getCurrency()
+
+    function setCurrencyAndRefresh(code) {
+      setCurrency(code)
+      renderCards()
+    }
+
+    function updateCounts() {
+      document.getElementById('count-projects').textContent = getProjects().length
+      document.getElementById('count-clients').textContent  = getClients().length
+      document.getElementById('count-invoices').textContent = getInvoices().length
+      document.getElementById('count-quests').textContent = getQuests().filter(q => !q.done).length
+    }
+    updateCounts()
+
+    function projectCount(clientId) {
+      return getProjects().filter(p => p.clientId === clientId).length
+    }
+
+    function clientRevenue(clientId) {
+      return getInvoices()
+        .filter(i => i.clientId === clientId && i.status === 'paid')
+        .reduce((s, i) => s + (Number(i.amount) || 0), 0)
+    }
+
+    function clientPending(clientId) {
+      return getInvoices()
+        .filter(i => i.clientId === clientId && (i.status === 'sent' || i.status === 'draft'))
+        .reduce((s, i) => s + (Number(i.amount) || 0), 0)
+    }
+
+    function renderCards() {
+      const q = document.getElementById('search').value.toLowerCase()
+      let clients = getClients()
+      if (q) clients = clients.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        (c.company || '').toLowerCase().includes(q) ||
+        (c.location || '').toLowerCase().includes(q)
+      )
+
+      const total = getClients().length
+      document.getElementById('clients-count-sub').textContent =
+        `${total} client${total !== 1 ? 's' : ''}`
+
+      const grid  = document.getElementById('clients-grid')
+      const empty = document.getElementById('empty-state')
+
+      if (clients.length === 0) {
+        grid.innerHTML = ''
+        empty.classList.remove('hidden')
+        return
+      }
+
+      empty.classList.add('hidden')
+      grid.innerHTML = clients.map(c => {
+        const n       = projectCount(c.id)
+        const rev     = clientRevenue(c.id)
+        const pending = clientPending(c.id)
+        return `
+          <div class="client-card">
+            <div class="client-card-name">${escHtml(c.name)}</div>
+            <div class="client-card-company">${c.company ? escHtml(c.company) : '&nbsp;'}</div>
+            <div class="client-card-meta">
+              ${c.email    ? `<div>${escHtml(c.email)}</div>`    : ''}
+              ${c.phone    ? `<div>${escHtml(c.phone)}</div>`    : ''}
+              ${c.location ? `<div>${escHtml(c.location)}</div>` : ''}
+              ${c.address  ? `<div>${escHtml(c.address)}</div>` : ''}
+              <div style="margin-top:8px;display:flex;flex-direction:column;gap:2px">
+                <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim)">
+                  ${n} project${n !== 1 ? 's' : ''}
+                </div>
+                ${rev > 0 ? `
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px">
+                    <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim)">Billed</span>
+                    <span style="font-family:'VT323',monospace;font-size:22px;color:var(--success)">${fmtMoney(rev)}</span>
+                  </div>` : ''}
+                ${pending > 0 ? `
+                  <div style="display:flex;justify-content:space-between;align-items:baseline">
+                    <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim)">Pending</span>
+                    <span style="font-family:'VT323',monospace;font-size:18px;color:var(--warning)">${fmtMoney(pending)}</span>
+                  </div>` : ''}
+              </div>
+            </div>
+            <div class="client-card-actions">
+              <button class="btn btn-secondary btn-sm" onclick="openModal('${c.id}')">Edit</button>
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();newProjectForClient('${c.id}')">+ Project</button>
+            </div>
+          </div>`
+      }).join('')
+    }
+
+    renderCards()
+
+    function newProjectForClient(clientId) {
+      sessionStorage.setItem('ldq_preselect_client', clientId)
+      location.href = 'projects.html'
+    }
+
+    function openModal(id) {
+      document.getElementById('modal-title').textContent = id ? 'Edit client' : 'New client'
+      document.getElementById('btn-delete').style.display = id ? '' : 'none'
+
+      if (id) {
+        const c = getClientById(id)
+        if (!c) return
+        document.getElementById('edit-id').value    = id
+        document.getElementById('f-name').value     = c.name || ''
+        document.getElementById('f-company').value  = c.company || ''
+        document.getElementById('f-email').value    = c.email || ''
+        document.getElementById('f-phone').value    = c.phone || ''
+        document.getElementById('f-location').value = c.location || ''
+        document.getElementById('f-address').value  = c.address || ''
+        document.getElementById('f-notes').value    = c.notes || ''
+      } else {
+        document.getElementById('edit-id').value    = ''
+        document.getElementById('f-name').value     = ''
+        document.getElementById('f-company').value  = ''
+        document.getElementById('f-email').value    = ''
+        document.getElementById('f-phone').value    = ''
+        document.getElementById('f-location').value = ''
+        document.getElementById('f-address').value  = ''
+        document.getElementById('f-notes').value    = ''
+      }
+
+      document.getElementById('modal-overlay').classList.add('open')
+      setTimeout(() => document.getElementById('f-name').focus(), 80)
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open')
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modal-overlay')) closeModal()
+    }
+
+    function saveClient() {
+      const name = document.getElementById('f-name').value.trim()
+      if (!name) { document.getElementById('f-name').focus(); return }
+
+      const data = {
+        name,
+        company:  document.getElementById('f-company').value.trim(),
+        email:    document.getElementById('f-email').value.trim(),
+        phone:    document.getElementById('f-phone').value.trim(),
+        location: document.getElementById('f-location').value.trim(),
+        address:  document.getElementById('f-address').value.trim(),
+        notes:    document.getElementById('f-notes').value.trim(),
+      }
+
+      const id = document.getElementById('edit-id').value
+      if (id) {
+        updateClient(id, data)
+        showToast('Client updated')
+      } else {
+        addClient(data)
+        showToast('Client added')
+      }
+
+      closeModal()
+      updateCounts()
+      renderCards()
+    }
+
+    function deleteCurrentClient() {
+      const id = document.getElementById('edit-id').value
+      if (!id) return
+      if (!confirm('Delete this client? Linked projects will be kept.')) return
+      deleteClient(id)
+      closeModal()
+      updateCounts()
+      renderCards()
+      showToast('Client deleted')
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal()
+    })
+  </script>
+</body>
+</html>
