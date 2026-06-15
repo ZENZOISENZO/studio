@@ -21,6 +21,12 @@ const _cache = {
   app_state: {},
 }
 
+// Set to true only when initDB() successfully loads from Supabase. Used to
+// guard seedIfEmpty() so a network hiccup (cache stays empty) never gets
+// mistaken for "this is a brand new, empty database" and overwrites real
+// data with the demo seed.
+let _dbLoaded = false
+
 function _supaHeaders(extra) {
   return Object.assign({
     'apikey': SUPABASE_ANON_KEY,
@@ -83,6 +89,7 @@ function initDB() {
       _cache.quests     = (data.quests     || []).map(r => ({ ...r.data, id: r.id }))
       _cache.production = data.production || {}
       _cache.app_state  = data.app_state   || {}
+      _dbLoaded = true
     } else {
       console.error('Supabase initDB error', xhr.status, xhr.responseText)
     }
@@ -776,6 +783,10 @@ function showToast(msg, duration = 2200) {
 // Only runs the very first time the database is genuinely empty — never
 // wipes existing data, so a missing flag can no longer cause data loss.
 function seedIfEmpty() {
+  // If initDB() couldn't reach Supabase, _cache is empty but that doesn't
+  // mean the database is empty — don't seed (and don't overwrite real data).
+  if (!_dbLoaded) return
+
   if (_cache.clients.length || _cache.projects.length || _cache.invoices.length ||
       _cache.expenses.length || _cache.quests.length) return
 
