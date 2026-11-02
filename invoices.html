@@ -126,6 +126,9 @@
       <div class="empty-state-sub">Create your first invoice</div>
     </div>
 
+    <!-- Mobile card view -->
+    <div id="cards-wrap"></div>
+
   </main>
 
   <!-- Modal -->
@@ -321,16 +324,24 @@
       document.getElementById('inv-count-sub').textContent =
         `${total} document${total !== 1 ? 's' : ''}`
 
-      const tbody = document.getElementById('invoices-tbody')
-      const empty = document.getElementById('empty-state')
+      const tbody     = document.getElementById('invoices-tbody')
+      const cardsWrap = document.getElementById('cards-wrap')
+      const tableWrap = document.getElementById('table-wrap')
+      const empty     = document.getElementById('empty-state')
+      const isMobileView = window.innerWidth <= 768
 
       if (invoices.length === 0) {
         tbody.innerHTML = ''
+        cardsWrap.innerHTML = ''
         empty.classList.remove('hidden')
+        tableWrap.style.display  = isMobileView ? 'none' : ''
+        cardsWrap.style.display  = ''
         return
       }
 
       empty.classList.add('hidden')
+      tableWrap.style.display = isMobileView ? 'none' : ''
+      cardsWrap.style.display = isMobileView ? '' : 'none'
 
       // Group by month
       const groups = []
@@ -341,45 +352,65 @@
         groups[groups.length - 1].items.push(i)
       })
 
-      const isMobileView = window.innerWidth <= 768
-      let rows = ''
-      groups.forEach(g => {
-        const label = g.key !== '__none__'
-          ? new Date(g.key + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-          : 'No date'
-        const totalJPY     = g.items.reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
-        const collectedJPY = g.items.filter(i => i.status === 'paid').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
-        const pendingJPY   = g.items.filter(i => i.status === 'sent').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
-        const mf = s => `<span class="tr-month-total">${s}</span>`
-        if (!isMobileView) {
+      if (isMobileView) {
+        // ── Card view ──────────────────────────────────
+        let cards = ''
+        invoices.forEach(i => {
+          const od = isOverdue(i)
+          cards += `
+          <div class="inv-card${od ? ' inv-card-overdue' : ''}" onclick="openModal('${i.id}')">
+            <div class="inv-card-top">
+              <span class="inv-card-number">${i.number || '—'}</span>
+              <span class="badge badge-inv-status badge-${i.status}" onclick="cycleStatus('${i.id}','${i.status}',event)">${statusLabels[i.status] || i.status}</span>
+            </div>
+            <div class="inv-card-client">${getClientName(i.clientId)}</div>
+            <div class="inv-card-project">${getProjectTitle(i.projectId) !== '—' ? getProjectTitle(i.projectId) : (typeLabels[i.type] || i.type)}</div>
+            <div class="inv-card-bottom">
+              <span class="inv-card-amount">${fmtMoneyIn(i.amount, i.currency || getCurrency())}</span>
+              <span class="inv-card-date">${fmtDate(i.date)}${od ? ` <span class="badge-overdue">${daysOverdue(i)}d</span>` : ''}</span>
+            </div>
+          </div>`
+        })
+        cardsWrap.innerHTML = cards
+      } else {
+        // ── Table view ─────────────────────────────────
+        let rows = ''
+        groups.forEach(g => {
+          const label = g.key !== '__none__'
+            ? new Date(g.key + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+            : 'No date'
+          const totalJPY     = g.items.reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+          const collectedJPY = g.items.filter(i => i.status === 'paid').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+          const pendingJPY   = g.items.filter(i => i.status === 'sent').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+          const mf = s => `<span class="tr-month-total">${s}</span>`
           rows += `<tr class="tr-month">
             <td colspan="9">${label}${mf(fmtMoneyIn(totalJPY,'JPY'))}<span class="tr-month-total" style="color:var(--success);margin-left:10px">${fmtMoneyIn(collectedJPY,'JPY')} rcv</span><span class="tr-month-total" style="color:var(--danger);margin-left:10px">${fmtMoneyIn(pendingJPY,'JPY')} pnd</span></td>
           </tr>`
-        }
-        g.items.forEach(i => {
-          const od     = isOverdue(i)
-          const rowCls = od ? ' class="row-overdue"' : ''
-          const dueTd  = od
-            ? `<td>${fmtDate(i.dueDate)} <span class="badge-overdue">${daysOverdue(i)}d</span></td>`
-            : `<td>${fmtDate(i.dueDate)}</td>`
-          rows += `
-          <tr${rowCls} onclick="openModal('${i.id}')">
-            <td class="td-num">${i.number || '—'}</td>
-            <td class="td-main">${getClientName(i.clientId)}</td>
-            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${getProjectTitle(i.projectId)}</td>
-            <td><span class="badge badge-${i.type}">${typeLabels[i.type] || i.type}</span></td>
-            <td class="td-amount">${fmtMoneyIn(i.amount, i.currency || getCurrency())}</td>
-            <td onclick="event.stopPropagation()"><span class="badge badge-inv-status badge-${i.status}" onclick="cycleStatus('${i.id}','${i.status}',event)">${statusLabels[i.status] || i.status}</span></td>
-            <td>${fmtDate(i.date)}</td>
-            ${dueTd}
-            <td class="td-actions" onclick="event.stopPropagation()">
-              <button class="btn btn-ghost btn-sm" onclick="openModal('${i.id}')">Edit</button>
-              <button class="btn btn-ghost btn-sm" onclick="openPrint('${i.id}')" title="Generate invoice PDF">⎙</button>
-            </td>
-          </tr>`
+          g.items.forEach(i => {
+            const od     = isOverdue(i)
+            const rowCls = od ? ' class="row-overdue"' : ''
+            const dueTd  = od
+              ? `<td>${fmtDate(i.dueDate)} <span class="badge-overdue">${daysOverdue(i)}d</span></td>`
+              : `<td>${fmtDate(i.dueDate)}</td>`
+            rows += `
+            <tr${rowCls} onclick="openModal('${i.id}')">
+              <td class="td-num">${i.number || '—'}</td>
+              <td class="td-main">${getClientName(i.clientId)}</td>
+              <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${getProjectTitle(i.projectId)}</td>
+              <td><span class="badge badge-${i.type}">${typeLabels[i.type] || i.type}</span></td>
+              <td class="td-amount">${fmtMoneyIn(i.amount, i.currency || getCurrency())}</td>
+              <td onclick="event.stopPropagation()"><span class="badge badge-inv-status badge-${i.status}" onclick="cycleStatus('${i.id}','${i.status}',event)">${statusLabels[i.status] || i.status}</span></td>
+              <td>${fmtDate(i.date)}</td>
+              ${dueTd}
+              <td class="td-actions" onclick="event.stopPropagation()">
+                <button class="btn btn-ghost btn-sm" onclick="openModal('${i.id}')">Edit</button>
+                <button class="btn btn-ghost btn-sm" onclick="openPrint('${i.id}')" title="Generate invoice PDF">⎙</button>
+              </td>
+            </tr>`
+          })
         })
-      })
-      tbody.innerHTML = rows
+        tbody.innerHTML = rows
+      }
     }
 
     renderTable()

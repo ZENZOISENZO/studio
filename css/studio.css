@@ -2408,6 +2408,70 @@ tr.row-overdue:hover td { opacity: 0.85; }
     background: rgba(255,255,255,0.15);
   }
 
+  /* Invoice card stack */
+  #cards-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px var(--pad);
+    padding-bottom: calc(12px + 68px + env(safe-area-inset-bottom, 0px));
+  }
+  .inv-card {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+    padding: 14px 16px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.12s;
+  }
+  .inv-card:active { opacity: 0.7; }
+  .inv-card-overdue { border-left-color: var(--danger); }
+  .inv-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 7px;
+  }
+  .inv-card-number {
+    font-family: 'VT323', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+  }
+  .inv-card-client {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+  .inv-card-project {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .inv-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .inv-card-amount {
+    font-family: 'VT323', monospace;
+    font-size: 30px;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+  .inv-card-date {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
   /* Bottom sheet modal — retro title bar */
   .modal-header {
     background: var(--accent);
