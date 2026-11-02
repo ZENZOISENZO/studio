@@ -2382,20 +2382,30 @@ tr.row-overdue:hover td { opacity: 0.85; }
     border-radius: 2px;
   }
 
-  /* Bottom nav — retro accent separator */
+  /* Bottom nav — solid accent fill */
   .mobile-nav {
-    border-top: 2px solid var(--accent);
-    box-shadow: 0 -2px 0 var(--accent), 0 -8px 24px rgba(0,0,0,0.5);
+    background: var(--accent);
+    border-top: none;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   }
   .mobile-nav-item {
     font-family: 'VT323', monospace;
     font-size: 12px;
     letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.6);
   }
+  .mobile-nav-item svg { stroke: rgba(255,255,255,0.6); }
+  .mobile-nav-item.active {
+    color: #fff;
+  }
+  .mobile-nav-item.active svg { stroke: #fff; }
   .mobile-nav-item.active::before {
     height: 3px;
-    background: var(--accent);
+    background: #fff;
     left: 10%; right: 10%;
+  }
+  .mobile-nav-item:active {
+    background: rgba(255,255,255,0.15);
   }
 
   /* Bottom sheet modal — retro title bar */
