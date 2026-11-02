@@ -89,6 +89,16 @@
       <button class="filter-btn" data-filter="cancelled">Cancelled</button>
     </div>
 
+    <!-- Month navigator (mobile only) -->
+    <div class="month-nav" id="month-nav">
+      <button class="month-nav-btn" id="btn-prev-month" onclick="prevMonth()">◀</button>
+      <div class="month-nav-center">
+        <div class="month-nav-label" id="month-nav-label">—</div>
+        <div class="month-nav-stats" id="month-nav-stats"></div>
+      </div>
+      <button class="month-nav-btn" id="btn-next-month" onclick="nextMonth()">▶</button>
+    </div>
+
     <div class="toolbar">
       <input type="text" class="search-input" id="search" placeholder="Search…" oninput="renderTable()">
     </div>
@@ -302,6 +312,9 @@
         (i.number || '').toLowerCase().includes(q) ||
         getClientName(i.clientId).toLowerCase().includes(q)
       )
+      if (window.innerWidth <= 768 && selectedMonth) {
+        invoices = invoices.filter(i => i.date && i.date.startsWith(selectedMonth))
+      }
 
       const total = getInvoices().length
       document.getElementById('inv-count-sub').textContent =
@@ -327,6 +340,7 @@
         groups[groups.length - 1].items.push(i)
       })
 
+      const isMobileView = window.innerWidth <= 768
       let rows = ''
       groups.forEach(g => {
         const label = g.key !== '__none__'
@@ -336,9 +350,11 @@
         const collectedJPY = g.items.filter(i => i.status === 'paid').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
         const pendingJPY   = g.items.filter(i => i.status === 'sent').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
         const mf = s => `<span class="tr-month-total">${s}</span>`
-        rows += `<tr class="tr-month">
-          <td colspan="9">${label}${mf(fmtMoneyIn(totalJPY,'JPY'))}<span class="tr-month-total" style="color:var(--success);margin-left:10px">${fmtMoneyIn(collectedJPY,'JPY')} rcv</span><span class="tr-month-total" style="color:var(--danger);margin-left:10px">${fmtMoneyIn(pendingJPY,'JPY')} pnd</span></td>
-        </tr>`
+        if (!isMobileView) {
+          rows += `<tr class="tr-month">
+            <td colspan="9">${label}${mf(fmtMoneyIn(totalJPY,'JPY'))}<span class="tr-month-total" style="color:var(--success);margin-left:10px">${fmtMoneyIn(collectedJPY,'JPY')} rcv</span><span class="tr-month-total" style="color:var(--danger);margin-left:10px">${fmtMoneyIn(pendingJPY,'JPY')} pnd</span></td>
+          </tr>`
+        }
         g.items.forEach(i => {
           const od     = isOverdue(i)
           const rowCls = od ? ' class="row-overdue"' : ''
@@ -366,6 +382,67 @@
     }
 
     renderTable()
+
+    // ─── Month nav (mobile) ────────────────────────────────
+    let selectedMonth = null
+
+    function getAvailableMonths() {
+      return [...new Set(
+        getInvoices().filter(i => i.date).map(i => i.date.slice(0, 7))
+      )].sort().reverse()
+    }
+
+    function initMonthNav() {
+      const nav = document.getElementById('month-nav')
+      if (window.innerWidth > 768) { nav.style.display = 'none'; return }
+      nav.style.display = 'flex'
+      const months = getAvailableMonths()
+      if (!selectedMonth && months.length) selectedMonth = months[0]
+      updateMonthNav()
+      renderTable()
+    }
+
+    function updateMonthNav() {
+      const months = getAvailableMonths()
+      const idx = months.indexOf(selectedMonth)
+      const label = selectedMonth
+        ? new Date(selectedMonth + '-02').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()
+        : 'ALL'
+      document.getElementById('month-nav-label').textContent = label
+
+      const prevBtn = document.getElementById('btn-prev-month')
+      const nextBtn = document.getElementById('btn-next-month')
+      prevBtn.style.opacity = idx < months.length - 1 ? '1' : '0.25'
+      prevBtn.disabled = idx >= months.length - 1
+      nextBtn.style.opacity = idx > 0 ? '1' : '0.25'
+      nextBtn.disabled = idx <= 0
+
+      const monthInvoices = getInvoices().filter(i => i.date && i.date.startsWith(selectedMonth || ''))
+      const collected = monthInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+      const pending   = monthInvoices.filter(i => i.status === 'sent').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+      const statsEl = document.getElementById('month-nav-stats')
+      if (collected || pending) {
+        statsEl.innerHTML = `<span class="mnav-collected">${fmtMoneyIn(collected,'JPY')}</span>` +
+          (pending ? ` · <span class="mnav-pending">${fmtMoneyIn(pending,'JPY')}</span>` : '')
+      } else {
+        statsEl.textContent = '—'
+      }
+    }
+
+    function prevMonth() {
+      const months = getAvailableMonths()
+      const idx = months.indexOf(selectedMonth)
+      if (idx < months.length - 1) { selectedMonth = months[idx + 1]; updateMonthNav(); renderTable() }
+    }
+
+    function nextMonth() {
+      const months = getAvailableMonths()
+      const idx = months.indexOf(selectedMonth)
+      if (idx > 0) { selectedMonth = months[idx - 1]; updateMonthNav(); renderTable() }
+    }
+
+    window.addEventListener('resize', initMonthNav)
+    initMonthNav()
 
     // ─── Modal ─────────────────────────────────────────────
     let items = []

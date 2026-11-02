@@ -2241,3 +2241,169 @@ tr.row-overdue:hover td { opacity: 0.85; }
 .mobile-nav-item:active {
   background: var(--bg-hover);
 }
+
+/* ─── Month navigator (invoice tab, mobile only) ─ */
+.month-nav {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--pad, 24px);
+  gap: 8px;
+}
+.month-nav-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 2px;
+}
+.month-nav-label {
+  font-family: 'VT323', monospace;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  text-align: center;
+  line-height: 1;
+}
+.month-nav-stats {
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  color: var(--text-dim);
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.mnav-collected { color: var(--success); }
+.mnav-pending   { color: var(--accent); }
+.month-nav-btn {
+  font-family: 'VT323', monospace;
+  font-size: 32px;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 14px;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 48px;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+.month-nav-btn:active { opacity: 0.5; }
+
+/* ─── Game-like mobile overrides ─────────────── */
+@media (max-width: 768px) {
+
+  /* Show month nav */
+  .month-nav { display: flex; }
+
+  /* Page header — bigger title, strong separator */
+  .page-title {
+    font-size: 44px;
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+  .page-header {
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 16px;
+  }
+
+  /* Filter buttons — game menu style */
+  .filter-bar {
+    padding: 10px var(--pad);
+    border-bottom: 1px dashed var(--border);
+  }
+  .filter-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .filter-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  /* Month nav — retro display */
+  .month-nav {
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--accent);
+    padding: 10px var(--pad);
+  }
+  .month-nav-label { color: var(--accent); }
+
+  /* Section block headers — blue fill */
+  .section-block-header {
+    background: var(--accent) !important;
+    border-radius: 0;
+  }
+  .section-block-title  { color: #fff !important; }
+  .section-block-link   { color: rgba(255,255,255,0.65) !important; }
+
+  /* Data table — blue header */
+  .data-table thead th {
+    background: var(--accent);
+    color: #fff;
+    border-bottom: none;
+    font-family: 'VT323', monospace;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+  }
+  .data-table { border-top: 2px solid var(--accent); }
+  .data-table tbody tr:nth-child(even) { background: rgba(27, 27, 209, 0.04); }
+
+  /* Stats cards — accent left border */
+  .stat-card {
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+  }
+  .stat-label {
+    color: var(--accent);
+    font-family: 'VT323', monospace;
+    letter-spacing: 0.08em;
+  }
+
+  /* Financial strip cards */
+  .fin-card {
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+  }
+  .fin-label {
+    font-family: 'VT323', monospace;
+    letter-spacing: 0.06em;
+    font-size: 14px;
+  }
+
+  /* Objectif / target block */
+  .objectif-block {
+    border: 1px solid var(--accent) !important;
+    border-radius: 2px;
+  }
+
+  /* Bottom nav — retro accent separator */
+  .mobile-nav {
+    border-top: 2px solid var(--accent);
+    box-shadow: 0 -2px 0 var(--accent), 0 -8px 24px rgba(0,0,0,0.5);
+  }
+  .mobile-nav-item {
+    font-family: 'VT323', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
+  .mobile-nav-item.active::before {
+    height: 3px;
+    background: var(--accent);
+    left: 10%; right: 10%;
+  }
+
+  /* Bottom sheet modal — retro title bar */
+  .modal-header {
+    background: var(--accent);
+    border-radius: 16px 16px 0 0;
+  }
+  .modal-title  { color: #fff; }
+  .modal-close  { color: rgba(255,255,255,0.8); }
+  .modal-close:hover { color: #fff; background: rgba(255,255,255,0.15); }
+}
