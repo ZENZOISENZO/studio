@@ -212,13 +212,11 @@ function getInvoiceById(id) {
 
 // ─── Next invoice number ───────────────────────────────────
 function nextInvoiceNumber() {
-  const year = new Date().getFullYear()
-  const prefix = `INV-${year}-`
-  const nums = getInvoices()
-    .filter(i => i.number && i.number.startsWith(prefix))
-    .map(i => parseInt(i.number.replace(prefix, '')) || 0)
-  const next = nums.length > 0 ? Math.max(...nums) + 1 : 1
-  return `${prefix}${String(next).padStart(3, '0')}`
+  const today = new Date().toISOString().slice(0, 10)
+  const base = `INV-${today}`
+  const existing = getInvoices().filter(i => i.number && i.number.startsWith(base))
+  if (existing.length === 0) return base
+  return `${base}-${existing.length + 1}`
 }
 
 // ─── Monthly Goal (Objectif) ──────────────────────────────
@@ -236,7 +234,15 @@ function getCurrentMonthRevenue() {
   const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   return getInvoices()
     .filter(i => i.status === 'paid' && i.date && i.date.startsWith(key))
-    .reduce((s, i) => s + (Number(i.amount) || 0), 0)
+    .reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+}
+
+function getCurrentMonthPending() {
+  const now = new Date()
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  return getInvoices()
+    .filter(i => i.status === 'sent' && i.date && i.date.startsWith(key))
+    .reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
 }
 
 // ─── Stats ────────────────────────────────────────────────
@@ -247,8 +253,8 @@ function getStats() {
   return {
     totalProjects:   projects.length,
     activeProjects:  projects.filter(p => active.includes(p.status)).length,
-    totalBilled:     invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (Number(i.amount) || 0), 0),
-    pendingAmount:   invoices.filter(i => i.status === 'sent').reduce((s, i) => s + (Number(i.amount) || 0), 0),
+    totalBilled:     invoices.filter(i => i.status === 'paid').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0),
+    pendingAmount:   invoices.filter(i => i.status === 'sent').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0),
     pendingCount:    invoices.filter(i => i.status === 'sent').length,
   }
 }
@@ -337,7 +343,9 @@ function getMonthlyRevenue12() {
 
 // ─── Monthly revenue (last 6 months) ──────────────────────
 function getMonthlyRevenue() {
-  const paid = getInvoices().filter(i => i.status === 'paid')
+  const invoices = getInvoices()
+  const paid    = invoices.filter(i => i.status === 'paid')
+  const pending = invoices.filter(i => i.status === 'sent')
   const now = new Date()
   return Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
@@ -345,8 +353,11 @@ function getMonthlyRevenue() {
     const label = d.toLocaleString('default', { month: 'short' }).toUpperCase()
     const amount = paid
       .filter(inv => inv.date && inv.date.startsWith(key))
-      .reduce((s, inv) => s + (Number(inv.amount) || 0), 0)
-    return { key, label, amount }
+      .reduce((s, inv) => s + toJPY(Number(inv.amount) || 0, inv.currency || 'JPY'), 0)
+    const pendingAmount = pending
+      .filter(inv => inv.date && inv.date.startsWith(key))
+      .reduce((s, inv) => s + toJPY(Number(inv.amount) || 0, inv.currency || 'JPY'), 0)
+    return { key, label, amount, pendingAmount }
   })
 }
 
@@ -749,9 +760,47 @@ function getQuestStats() {
 }
 
 // ─── Formatting helpers ────────────────────────────────────
+// ─── Exchange rates (JPY base) ────────────────────────────
+// rates[code] = units of `code` per 1 JPY  →  toJPY = amount / rates[code]
+const _fallbackRates = { JPY: 1, USD: 0.00676, EUR: 0.00623, GBP: 0.00521, KRW: 9.24, CNY: 0.04864 }
+let _rates = { ..._fallbackRates };
+
+(async function _loadRates() {
+  try {
+    const cached = localStorage.getItem('ldq_fx')
+    const ts     = parseInt(localStorage.getItem('ldq_fx_ts') || '0')
+    if (cached && Date.now() - ts < 3_600_000) { _rates = JSON.parse(cached); return }
+    const res  = await fetch('https://open.er-api.com/v6/latest/JPY')
+    const data = await res.json()
+    if (data && data.rates) {
+      _rates = data.rates
+      localStorage.setItem('ldq_fx',    JSON.stringify(data.rates))
+      localStorage.setItem('ldq_fx_ts', String(Date.now()))
+    }
+  } catch (_) {}
+})()
+
+function toJPY(amount, code) {
+  if (!code || code === 'JPY') return Math.round(Number(amount) || 0)
+  const rate = _rates[code] || _fallbackRates[code] || 1
+  return Math.round((Number(amount) || 0) / rate)
+}
+
+function rateToJPY(code) {
+  if (!code || code === 'JPY') return 1
+  const rate = _rates[code] || _fallbackRates[code] || 1
+  return Math.round(1 / rate)
+}
+
 function fmtMoney(n) {
   if (n === undefined || n === null || n === '') return '—'
   const c = CURRENCIES[getCurrency()] || CURRENCIES.JPY
+  return c.symbol + Number(n).toLocaleString(c.locale, { minimumFractionDigits: 0, maximumFractionDigits: c.decimals })
+}
+
+function fmtMoneyIn(n, code) {
+  if (n === undefined || n === null || n === '') return '—'
+  const c = CURRENCIES[code] || CURRENCIES[getCurrency()] || CURRENCIES.JPY
   return c.symbol + Number(n).toLocaleString(c.locale, { minimumFractionDigits: 0, maximumFractionDigits: c.decimals })
 }
 

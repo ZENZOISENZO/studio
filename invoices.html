@@ -164,6 +164,18 @@
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
+          <div class="form-group">
+            <label class="form-label">Currency</label>
+            <select class="form-select" id="f-currency" onchange="renderItems();updateCurrencyNote()">
+              <option value="JPY">¥ JPY</option>
+              <option value="EUR">€ EUR</option>
+              <option value="USD">$ USD</option>
+              <option value="GBP">£ GBP</option>
+              <option value="KRW">₩ KRW</option>
+              <option value="CNY">¥ CNY</option>
+            </select>
+            <span id="currency-note" style="font-size:11px;color:var(--text-dim);margin-top:5px;display:block;letter-spacing:0.02em"></span>
+          </div>
         </div>
 
         <div class="form-row">
@@ -267,6 +279,14 @@
 
     const statusLabels = { draft:'Draft', sent:'Sent', paid:'Paid', cancelled:'Cancelled' }
     const typeLabels   = { invoice:'Invoice', quote:'Quote', contract:'Contract' }
+    const statusOrder  = ['draft', 'sent', 'paid', 'cancelled']
+
+    function cycleStatus(id, current, e) {
+      e.stopPropagation()
+      const next = statusOrder[(statusOrder.indexOf(current) + 1) % statusOrder.length]
+      updateInvoice(id, { status: next })
+      renderTable()
+    }
 
     function getProjectTitle(id) {
       const p = getProjectById(id)
@@ -297,20 +317,42 @@
       }
 
       empty.classList.add('hidden')
-      tbody.innerHTML = invoices.map(i => {
-        const od     = isOverdue(i)
-        const rowCls = od ? ' class="row-overdue"' : ''
-        const dueTd  = od
-          ? `<td>${fmtDate(i.dueDate)} <span class="badge-overdue">${daysOverdue(i)}d</span></td>`
-          : `<td>${fmtDate(i.dueDate)}</td>`
-        return `
+
+      // Group by month
+      const groups = []
+      invoices.forEach(i => {
+        const key = i.date ? i.date.slice(0, 7) : '__none__'
+        if (!groups.length || groups[groups.length - 1].key !== key)
+          groups.push({ key, items: [] })
+        groups[groups.length - 1].items.push(i)
+      })
+
+      let rows = ''
+      groups.forEach(g => {
+        const label = g.key !== '__none__'
+          ? new Date(g.key + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+          : 'No date'
+        const totalJPY     = g.items.reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+        const collectedJPY = g.items.filter(i => i.status === 'paid').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+        const pendingJPY   = g.items.filter(i => i.status === 'sent').reduce((s, i) => s + toJPY(Number(i.amount) || 0, i.currency || 'JPY'), 0)
+        const mf = s => `<span class="tr-month-total">${s}</span>`
+        rows += `<tr class="tr-month">
+          <td colspan="9">${label}${mf(fmtMoneyIn(totalJPY,'JPY'))}<span class="tr-month-total" style="color:var(--success);margin-left:10px">${fmtMoneyIn(collectedJPY,'JPY')} rcv</span><span class="tr-month-total" style="color:var(--danger);margin-left:10px">${fmtMoneyIn(pendingJPY,'JPY')} pnd</span></td>
+        </tr>`
+        g.items.forEach(i => {
+          const od     = isOverdue(i)
+          const rowCls = od ? ' class="row-overdue"' : ''
+          const dueTd  = od
+            ? `<td>${fmtDate(i.dueDate)} <span class="badge-overdue">${daysOverdue(i)}d</span></td>`
+            : `<td>${fmtDate(i.dueDate)}</td>`
+          rows += `
           <tr${rowCls} onclick="openModal('${i.id}')">
             <td class="td-num">${i.number || '—'}</td>
             <td class="td-main">${getClientName(i.clientId)}</td>
             <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${getProjectTitle(i.projectId)}</td>
             <td><span class="badge badge-${i.type}">${typeLabels[i.type] || i.type}</span></td>
-            <td class="td-amount">${fmtMoney(i.amount)}</td>
-            <td><span class="badge badge-${i.status}">${statusLabels[i.status] || i.status}</span></td>
+            <td class="td-amount">${fmtMoneyIn(i.amount, i.currency || getCurrency())}</td>
+            <td onclick="event.stopPropagation()"><span class="badge badge-inv-status badge-${i.status}" onclick="cycleStatus('${i.id}','${i.status}',event)">${statusLabels[i.status] || i.status}</span></td>
             <td>${fmtDate(i.date)}</td>
             ${dueTd}
             <td class="td-actions" onclick="event.stopPropagation()">
@@ -318,7 +360,9 @@
               <button class="btn btn-ghost btn-sm" onclick="openPrint('${i.id}')" title="Generate invoice PDF">⎙</button>
             </td>
           </tr>`
-      }).join('')
+        })
+      })
+      tbody.innerHTML = rows
     }
 
     renderTable()
@@ -355,8 +399,9 @@
         document.getElementById('f-number').value  = inv.number || ''
         document.getElementById('f-type').value    = inv.type || 'invoice'
         document.getElementById('f-status').value  = inv.status || 'draft'
-        document.getElementById('f-date').value    = inv.date || today
-        document.getElementById('f-duedate').value = inv.dueDate || due30
+        document.getElementById('f-date').value     = inv.date || today
+        document.getElementById('f-duedate').value  = inv.dueDate || due30
+        document.getElementById('f-currency').value = inv.currency || getCurrency()
         populateClients(inv.clientId)
         document.getElementById('f-client').value  = inv.clientId || ''
         refreshProjects()
@@ -367,8 +412,9 @@
         document.getElementById('f-number').value  = nextInvoiceNumber()
         document.getElementById('f-type').value    = 'invoice'
         document.getElementById('f-status').value  = 'draft'
-        document.getElementById('f-date').value    = today
-        document.getElementById('f-duedate').value = due30
+        document.getElementById('f-date').value     = today
+        document.getElementById('f-duedate').value  = due30
+        document.getElementById('f-currency').value = getCurrency()
         populateClients('')
         refreshProjects()
         items = [{ description: '', qty: 1, price: 0 }]
@@ -386,13 +432,18 @@
       if (e.target === document.getElementById('modal-overlay')) closeModal()
     }
 
+    function modalCurrency() {
+      return document.getElementById('f-currency').value || getCurrency()
+    }
+
     function renderItems() {
+      const cur = modalCurrency()
       document.getElementById('items-tbody').innerHTML = items.map((it, i) => `
         <tr>
           <td><input type="text" value="${escHtml(it.description)}" placeholder="Description" oninput="items[${i}].description=this.value"></td>
           <td><input type="number" value="${it.qty}" min="1" style="width:60px" oninput="items[${i}].qty=Number(this.value)||1;updateTotal()"></td>
           <td><input type="number" value="${it.price}" min="0" step="any" oninput="items[${i}].price=parseFloat(this.value)||0;updateTotal()"></td>
-          <td style="text-align:right;font-family:'VT323',monospace;font-size:16px;color:var(--text);white-space:nowrap">${fmtMoney((it.qty||1)*(it.price||0))}</td>
+          <td style="text-align:right;font-family:'VT323',monospace;font-size:16px;color:var(--text);white-space:nowrap">${fmtMoneyIn((it.qty||1)*(it.price||0), cur)}</td>
           <td class="td-remove"><button class="item-remove" onclick="removeItem(${i})">✕</button></td>
         </tr>`).join('')
       updateTotal()
@@ -412,9 +463,22 @@
       renderItems()
     }
 
+    function updateCurrencyNote() {
+      const note = document.getElementById('currency-note')
+      if (!note) return
+      const code = modalCurrency()
+      if (code === 'JPY') { note.textContent = ''; return }
+      const rate = rateToJPY(code)
+      const subtotal = items.reduce((s, it) => s + (it.qty || 1) * (it.price || 0), 0)
+      let text = `1 ${code} ≈ ¥${rate.toLocaleString('ja-JP')}`
+      if (subtotal > 0) text += `  ·  subtotal ≈ ${fmtMoneyIn(toJPY(subtotal, code), 'JPY')}`
+      note.textContent = text
+    }
+
     function updateTotal() {
       const total = items.reduce((s, it) => s + (it.qty || 1) * (it.price || 0), 0)
-      document.getElementById('items-total').textContent = fmtMoney(total)
+      document.getElementById('items-total').textContent = fmtMoneyIn(total, modalCurrency())
+      updateCurrencyNote()
     }
 
     function saveInvoice() {
@@ -431,6 +495,7 @@
         status:    document.getElementById('f-status').value,
         date:      document.getElementById('f-date').value,
         dueDate:   document.getElementById('f-duedate').value,
+        currency:  document.getElementById('f-currency').value,
         amount:    total,
         items:     items.filter(it => it.description.trim()),
       }

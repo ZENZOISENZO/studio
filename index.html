@@ -120,7 +120,9 @@
             <span class="objectif-goal" id="obj-goal">—</span>
             <span class="objectif-pct" id="obj-pct">—</span>
           </div>
+          <div style="font-size:10px;letter-spacing:.1em;color:var(--accent);margin-bottom:7px;margin-top:-4px" id="obj-pending-line"></div>
           <div class="progress-track">
+            <div class="progress-fill-pending" id="obj-bar-pending" style="width:0%"></div>
             <div class="progress-fill" id="obj-bar" style="width:0%"></div>
           </div>
           <div class="objectif-footer">
@@ -136,11 +138,15 @@
         </div>
       </div>
 
-      <!-- Financial summary strip: Revenue / Expenses / Net Profit / Tax Reserve -->
+      <!-- Financial summary strip: Revenue / Pending / Expenses / Net Profit / Tax Reserve -->
       <div class="fin-summary">
         <div class="fin-card">
-          <div class="fin-card-label">Revenue this month</div>
-          <div class="fin-card-value" id="fin-revenue">—</div>
+          <div class="fin-card-label">Collected this month</div>
+          <div class="fin-card-value positive" id="fin-revenue">—</div>
+        </div>
+        <div class="fin-card">
+          <div class="fin-card-label">Pending this month</div>
+          <div class="fin-card-value" id="fin-pending" style="color:var(--accent)">—</div>
         </div>
         <div class="fin-card">
           <div class="fin-card-label">Expenses this month</div>
@@ -183,13 +189,19 @@
         <div class="section-block">
           <div class="section-block-header">
             <span class="section-block-title">Revenue (6 months)</span>
+            <span style="display:flex;gap:12px;align-items:center">
+              <span style="display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.1em;color:var(--success)"><span style="display:inline-block;width:8px;height:8px;background:var(--success);opacity:.8"></span>COLLECTED</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.1em;color:var(--accent)"><span style="display:inline-block;width:8px;height:8px;background:var(--accent);opacity:.4"></span>PENDING</span>
+            </span>
           </div>
           <div class="bar-chart-wrap">
             <div class="bar-chart" id="revenue-chart"></div>
           </div>
           <div class="section-block-header" style="border-top:1px solid var(--border);border-bottom:none;padding:10px 18px;">
-            <span style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim)">6-month total</span>
-            <span class="font-vt" style="font-size:22px;color:var(--text)" id="chart-total">—</span>
+            <span style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim)">6-month collected</span>
+            <span class="font-vt" style="font-size:18px;color:var(--success)" id="chart-total">—</span>
+            <span class="font-vt" style="font-size:18px;color:var(--accent);margin-left:12px" id="chart-pending-total">—</span>
+            <span style="font-size:10px;letter-spacing:.1em;color:var(--text-dim);margin-left:4px">pnd</span>
           </div>
         </div>
 
@@ -280,40 +292,55 @@
       }
 
       // ── Monthly target ─────────────────────────────────
-      const goal    = getMonthlyGoal()
-      const current = getCurrentMonthRevenue()
-      const pct     = goal > 0 ? Math.min(Math.round((current / goal) * 100), 999) : 0
-      const reached = current >= goal
-      const behind  = pct < 30
+      const goal        = getMonthlyGoal()
+      const current     = getCurrentMonthRevenue()
+      const pendingMth  = getCurrentMonthPending()
+      const withPending = current + pendingMth
+      const pct         = goal > 0 ? Math.min(Math.round((current / goal) * 100), 999) : 0
+      const pctWith     = goal > 0 ? Math.min(Math.round((withPending / goal) * 100), 100) : 0
+      const reached     = current >= goal
+      const behind      = pct < 30
 
-      document.getElementById('obj-current').textContent = fmtMoney(current)
-      document.getElementById('obj-goal').textContent    = fmtMoney(goal)
+      document.getElementById('obj-current').textContent = fmtMoneyIn(current, 'JPY')
+      document.getElementById('obj-goal').textContent    = fmtMoneyIn(goal, 'JPY')
       document.getElementById('obj-pct').textContent     = `${pct}%`
       document.getElementById('obj-pct').className       =
         'objectif-pct ' + (reached ? 'reached' : behind ? 'behind' : 'on-track')
+
+      const pendingLine = document.getElementById('obj-pending-line')
+      if (pendingMth > 0 && !reached) {
+        pendingLine.textContent = `+ ${fmtMoneyIn(pendingMth, 'JPY')} pending → ${pctWith}% with pending`
+      } else {
+        pendingLine.textContent = ''
+      }
 
       const bar = document.getElementById('obj-bar')
       bar.style.width = Math.min(pct, 100) + '%'
       bar.className   = 'progress-fill ' + (reached ? 'reached' : behind ? 'behind' : '')
 
+      const barPending = document.getElementById('obj-bar-pending')
+      barPending.style.width = pctWith + '%'
+
       const remaining = document.getElementById('obj-remaining')
       if (reached) {
-        remaining.textContent = `Target reached  +${fmtMoney(current - goal)}`
+        remaining.textContent = `Target reached  +${fmtMoneyIn(current - goal, 'JPY')}`
         remaining.className   = 'objectif-remaining reached'
       } else {
-        remaining.textContent = `${fmtMoney(goal - current)} remaining to reach target`
+        remaining.textContent = `${fmtMoneyIn(goal - current, 'JPY')} remaining to reach target`
         remaining.className   = 'objectif-remaining'
       }
 
       // ── Financial summary ──────────────────────────────
-      const rev  = getCurrentMonthRevenue()
-      const exp  = getCurrentMonthExpenses()
-      const net  = rev - exp
-      const taxPct = getTaxPct()
-      const annual = getAnnualStats()
-      const taxAmt = Math.round(annual.revenue * taxPct / 100)
+      const rev     = getCurrentMonthRevenue()
+      const pend    = getCurrentMonthPending()
+      const exp     = getCurrentMonthExpenses()
+      const net     = rev - exp
+      const taxPct  = getTaxPct()
+      const annual  = getAnnualStats()
+      const taxAmt  = Math.round(annual.revenue * taxPct / 100)
 
-      document.getElementById('fin-revenue').textContent  = fmtMoney(rev)
+      document.getElementById('fin-revenue').textContent  = fmtMoneyIn(rev, 'JPY')
+      document.getElementById('fin-pending').textContent  = fmtMoneyIn(pend, 'JPY')
       document.getElementById('fin-expenses').textContent = fmtMoney(exp)
       document.getElementById('tax-pct-label').textContent = `(${taxPct}%)`
 
@@ -347,16 +374,26 @@
       }
 
       // ── Revenue chart ──────────────────────────────────
-      const months = getMonthlyRevenue()
-      const maxAmt = Math.max(...months.map(m => m.amount), 1)
-      const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-      document.getElementById('chart-total').textContent = fmtMoney(months.reduce((t, m) => t + m.amount, 0))
+      const months  = getMonthlyRevenue()
+      const maxAmt  = Math.max(...months.map(m => m.amount + m.pendingAmount), 1)
+      const nowKey  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const sixTotalPaid    = months.reduce((t, m) => t + m.amount, 0)
+      const sixTotalPending = months.reduce((t, m) => t + m.pendingAmount, 0)
+      document.getElementById('chart-total').textContent         = fmtMoneyIn(sixTotalPaid, 'JPY')
+      document.getElementById('chart-pending-total').textContent = fmtMoneyIn(sixTotalPending, 'JPY')
       document.getElementById('revenue-chart').innerHTML = months.map(m => {
-        const pctBar    = Math.round((m.amount / maxAmt) * 100)
-        const isCurrent = m.key === nowKey
-        return `<div class="bar-col" title="${fmtMoney(m.amount)}">
-          <div class="bar-fill${isCurrent ? ' on-track' : ''}" style="height:${pctBar}%;${isCurrent ? 'opacity:1' : ''}"></div>
-          <div class="bar-label">${m.label}</div>
+        const total      = m.amount + m.pendingAmount
+        const stackH     = Math.round((total / maxAmt) * 100)
+        const paidH      = total > 0 ? Math.round((m.amount / total) * 100) : 0
+        const pendingH   = 100 - paidH
+        const isCurrent  = m.key === nowKey
+        const tip = `Collected: ${fmtMoneyIn(m.amount,'JPY')} · Pending: ${fmtMoneyIn(m.pendingAmount,'JPY')}`
+        return `<div class="bar-col" title="${tip}">
+          <div class="bar-stack" style="height:${stackH}%;${isCurrent ? 'opacity:1' : ''}">
+            <div class="bar-seg bar-seg-pending" style="height:${pendingH}%"></div>
+            <div class="bar-seg bar-seg-paid"    style="height:${paidH}%"></div>
+          </div>
+          <div class="bar-label${isCurrent ? '' : ''}">${m.label}</div>
         </div>`
       }).join('')
 

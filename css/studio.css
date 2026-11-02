@@ -397,6 +397,28 @@ body {
 
 .data-table tbody tr:hover td { background: var(--bg-hover); }
 
+.tr-month td {
+  background: transparent !important;
+  cursor: default !important;
+  padding: 20px 16px 7px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+  font-weight: 600;
+  pointer-events: none;
+}
+.tr-month:first-child td { padding-top: 10px; }
+.tr-month-total {
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  font-weight: 400;
+  margin-left: 14px;
+}
+
 .td-main  { color: var(--text) !important; font-weight: 400; }
 .td-num   { font-family: 'VT323', monospace !important; font-size: 16px !important; color: var(--text-dim) !important; letter-spacing: 0.06em; }
 .td-amount{ font-family: 'VT323', monospace !important; font-size: 18px !important; color: var(--text) !important; letter-spacing: 0.02em; }
@@ -425,6 +447,19 @@ body {
 .badge-sent      { color: var(--accent); }
 .badge-paid      { color: var(--success); }
 .badge-cancelled { color: var(--danger); }
+
+.badge-inv-status {
+  padding: 3px 9px;
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.1s;
+}
+.badge-inv-status:hover { opacity: 0.8; }
+.badge-inv-status.badge-draft     { background: #6B6B6B;        color: #fff; }
+.badge-inv-status.badge-sent      { background: var(--accent);   color: #fff; }
+.badge-inv-status.badge-paid      { background: var(--success);  color: #fff; }
+.badge-inv-status.badge-cancelled { background: var(--danger);   color: #fff; }
 
 .badge-invoice   { color: var(--text-mid); }
 .badge-quote     { color: var(--warning); }
@@ -644,7 +679,7 @@ body {
   font-family: 'VT323', monospace;
   font-size: 22px;
   letter-spacing: 0.04em;
-  color: var(--text);
+  color: var(--accent);
   margin-bottom: 1px;
 }
 
@@ -752,14 +787,27 @@ body {
 }
 
 .progress-fill {
+  position: absolute;
+  top: 0; left: 0;
   height: 100%;
   background: var(--accent);
   transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 2px;
+  z-index: 1;
 }
 
 .progress-fill.reached   { background: var(--success); }
 .progress-fill.behind    { background: var(--warning); }
+
+.progress-fill-pending {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.22;
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
 .bar-fill.on-track       { background: var(--accent); opacity: 1 !important; }
 
 .objectif-footer {
@@ -833,6 +881,22 @@ body {
 }
 
 .bar-col:hover .bar-fill { opacity: 1; }
+
+.bar-stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: height 0.5s var(--ease);
+  overflow: hidden;
+}
+.bar-seg {
+  width: 100%;
+  transition: height 0.45s var(--ease), opacity 0.18s;
+}
+.bar-seg-paid    { background: var(--success); opacity: 0.8; }
+.bar-seg-pending { background: var(--accent);  opacity: 0.35; }
+.bar-col:hover .bar-seg { opacity: 1; }
 
 .bar-label {
   font-family: 'VT323', monospace;

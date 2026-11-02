@@ -184,6 +184,17 @@
             <label class="form-label">Budget</label>
             <input type="number" class="form-input" id="f-amount" placeholder="0">
           </div>
+          <div class="form-group">
+            <label class="form-label">Currency</label>
+            <select class="form-select" id="f-currency">
+              <option value="JPY">¥ JPY</option>
+              <option value="EUR">€ EUR</option>
+              <option value="USD">$ USD</option>
+              <option value="GBP">£ GBP</option>
+              <option value="KRW">₩ KRW</option>
+              <option value="CNY">¥ CNY</option>
+            </select>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Notes</label>
@@ -272,20 +283,44 @@
       }
 
       empty.classList.add('hidden')
-      tbody.innerHTML = projects.map((p, i) => `
+
+      // Group by month
+      const groups = []
+      projects.forEach(p => {
+        const key = p.date ? p.date.slice(0, 7) : '__none__'
+        if (!groups.length || groups[groups.length - 1].key !== key)
+          groups.push({ key, items: [] })
+        groups[groups.length - 1].items.push(p)
+      })
+
+      let rows = ''
+      let globalIdx = 0
+      groups.forEach(g => {
+        const label = g.key !== '__none__'
+          ? new Date(g.key + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+          : 'No date'
+        rows += `<tr class="tr-month">
+          <td colspan="9">${label}</td>
+        </tr>`
+        g.items.forEach(p => {
+          globalIdx++
+          rows += `
         <tr onclick="location.href='production.html?id=${p.id}'" style="cursor:pointer">
-          <td class="td-num">[${String(i + 1).padStart(3, '0')}]</td>
+          <td class="td-num">[${String(globalIdx).padStart(3, '0')}]</td>
           <td class="td-main">${p.title}</td>
           <td>${getClientName(p.clientId)}</td>
           <td>${typeLabels[p.type] || p.type}</td>
           <td>${p.format || '—'}</td>
           <td><span class="badge badge-${p.status}">${statusLabels[p.status] || p.status}</span></td>
           <td>${fmtDate(p.date)}</td>
-          <td class="td-amount">${p.amount ? fmtMoney(p.amount) : '—'}</td>
+          <td class="td-amount">${p.amount ? fmtMoneyIn(p.amount, p.currency || getCurrency()) : '—'}</td>
           <td class="td-actions" onclick="event.stopPropagation()">
             <button class="btn btn-ghost btn-sm" onclick="openModal('${p.id}')">Edit</button>
           </td>
-        </tr>`).join('')
+        </tr>`
+        })
+      })
+      tbody.innerHTML = rows
     }
 
     renderTable()
@@ -310,18 +345,20 @@
         document.getElementById('f-type').value   = p.type || 'photo'
         document.getElementById('f-format').value = p.format || '35mm'
         document.getElementById('f-status').value = p.status || 'brief'
-        document.getElementById('f-date').value   = p.date || ''
-        document.getElementById('f-amount').value = p.amount || ''
-        document.getElementById('f-notes').value  = p.description || ''
+        document.getElementById('f-date').value     = p.date || ''
+        document.getElementById('f-amount').value   = p.amount || ''
+        document.getElementById('f-currency').value = p.currency || getCurrency()
+        document.getElementById('f-notes').value    = p.description || ''
       } else {
-        document.getElementById('edit-id').value  = ''
-        document.getElementById('f-title').value  = ''
-        document.getElementById('f-type').value   = 'photo'
-        document.getElementById('f-format').value = '35mm'
-        document.getElementById('f-status').value = 'brief'
-        document.getElementById('f-date').value   = ''
-        document.getElementById('f-amount').value = ''
-        document.getElementById('f-notes').value  = ''
+        document.getElementById('edit-id').value    = ''
+        document.getElementById('f-title').value    = ''
+        document.getElementById('f-type').value     = 'photo'
+        document.getElementById('f-format').value   = '35mm'
+        document.getElementById('f-status').value   = 'brief'
+        document.getElementById('f-date').value     = ''
+        document.getElementById('f-amount').value   = ''
+        document.getElementById('f-currency').value = getCurrency()
+        document.getElementById('f-notes').value    = ''
       }
 
       document.getElementById('modal-overlay').classList.add('open')
@@ -348,6 +385,7 @@
         status:      document.getElementById('f-status').value,
         date:        document.getElementById('f-date').value,
         amount:      parseFloat(document.getElementById('f-amount').value) || 0,
+        currency:    document.getElementById('f-currency').value,
         description: document.getElementById('f-notes').value.trim(),
       }
 
@@ -356,8 +394,22 @@
         updateProject(id, data)
         showToast('Project updated')
       } else {
-        addProject(data)
-        showToast('Project created')
+        const project = addProject(data)
+        const today = new Date().toISOString().slice(0, 10)
+        const due30 = new Date(Date.now() + 30 * 86400e3).toISOString().slice(0, 10)
+        addInvoice({
+          number:    nextInvoiceNumber(),
+          type:      'invoice',
+          clientId:  data.clientId,
+          projectId: project.id,
+          status:    'draft',
+          date:      today,
+          dueDate:   due30,
+          currency:  data.currency,
+          amount:    0,
+          items:     [],
+        })
+        showToast('Project created — draft invoice ready')
       }
 
       closeModal()
