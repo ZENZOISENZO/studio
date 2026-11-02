@@ -240,6 +240,7 @@
     seedIfEmpty()
 
     let currentFilter = 'all'
+    let selectedMonth = null
 
     function setThemeAndRefresh(theme) {
       setTheme(theme)
@@ -384,8 +385,6 @@
     renderTable()
 
     // ─── Month nav (mobile) ────────────────────────────────
-    let selectedMonth = null
-
     function getAvailableMonths() {
       return [...new Set(
         getInvoices().filter(i => i.date).map(i => i.date.slice(0, 7))
