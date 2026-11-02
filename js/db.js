@@ -907,3 +907,28 @@ function seedIfEmpty() {
 
 // Bootstrap: populate the cache before any page script runs.
 initDB()
+
+// ─── Mobile bottom nav ───────────────────────────────────────
+;(function () {
+  const page = location.pathname.split('/').pop() || 'index.html'
+  const icon = {
+    home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V10.5z"/><path d="M9 22V12h6v10"/></svg>`,
+    projects: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="1"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9.5" y1="14.5" x2="14.5" y2="14.5"/></svg>`,
+    invoices: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>`,
+    clients: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+  }
+  const items = [
+    { href: 'index.html',    ico: icon.home,     label: 'Home'     },
+    { href: 'projects.html', ico: icon.projects, label: 'Projects' },
+    { href: 'invoices.html', ico: icon.invoices, label: 'Invoices' },
+    { href: 'clients.html',  ico: icon.clients,  label: 'Clients'  },
+    { href: 'calendar.html', ico: icon.calendar, label: 'Calendar' },
+  ]
+  const nav = document.createElement('nav')
+  nav.className = 'mobile-nav'
+  nav.innerHTML = items.map(it =>
+    `<a href="${it.href}" class="mobile-nav-item${page === it.href ? ' active' : ''}">${it.ico}<span>${it.label}</span></a>`
+  ).join('')
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(nav))
+})()
