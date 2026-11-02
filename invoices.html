@@ -349,6 +349,7 @@
       empty.classList.add('hidden')
       tableWrap.style.display = isMobileView ? 'none' : ''
       cardsWrap.style.display = isMobileView ? '' : 'none'
+      if (isMobileView && typeof updateMonthNav === 'function') updateMonthNav()
 
       // Group by month
       const groups = []
