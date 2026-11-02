@@ -103,22 +103,24 @@
       <input type="text" class="search-input" id="search" placeholder="Search…" oninput="renderTable()">
     </div>
 
-    <table class="data-table" id="invoices-table">
-      <thead>
-        <tr>
-          <th>Number</th>
-          <th>Client</th>
-          <th>Project</th>
-          <th>Type</th>
-          <th>Amount</th>
-          <th>Status</th>
-          <th>Date</th>
-          <th>Due date</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="invoices-tbody"></tbody>
-    </table>
+    <div id="table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table class="data-table" id="invoices-table">
+        <thead>
+          <tr>
+            <th>Number</th>
+            <th>Client</th>
+            <th>Project</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Due date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="invoices-tbody"></tbody>
+      </table>
+    </div>
 
     <div id="empty-state" class="empty-state hidden">
       <div class="empty-state-icon">[  ]</div>
