@@ -133,6 +133,9 @@
 
   </main>
 
+  <!-- Mobile FAB — create new invoice -->
+  <button class="mobile-fab" onclick="openModal()" aria-label="New invoice">+</button>
+
   <!-- Modal -->
   <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
     <div class="modal modal-lg">
@@ -210,18 +213,20 @@
             <span class="form-label" style="margin:0">Line items</span>
             <button class="btn btn-ghost btn-sm" onclick="addItem()" style="font-size:14px;padding:3px 8px">+ Add line</button>
           </div>
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th style="width:55%">Description</th>
-                <th style="width:12%">Qty</th>
-                <th style="width:20%">Unit price</th>
-                <th style="width:10%;text-align:right">Total</th>
-                <th class="td-remove"></th>
-              </tr>
-            </thead>
-            <tbody id="items-tbody"></tbody>
-          </table>
+          <div class="items-table-wrap">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th style="width:55%">Description</th>
+                  <th style="width:12%">Qty</th>
+                  <th style="width:20%">Unit price</th>
+                  <th style="width:10%;text-align:right">Total</th>
+                  <th class="td-remove"></th>
+                </tr>
+              </thead>
+              <tbody id="items-tbody"></tbody>
+            </table>
+          </div>
           <div class="invoice-total-row">
             <span class="invoice-total-label">Subtotal</span>
             <span class="invoice-total-value" id="items-total">—</span>
