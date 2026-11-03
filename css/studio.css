@@ -787,6 +787,7 @@ body {
 }
 
 .progress-fill {
+  will-change: width;
   position: absolute;
   top: 0; left: 0;
   height: 100%;
@@ -883,6 +884,7 @@ body {
 .bar-col:hover .bar-fill { opacity: 1; }
 
 .bar-stack {
+  will-change: height;
   width: 100%;
   display: flex;
   flex-direction: column;

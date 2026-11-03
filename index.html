@@ -270,13 +270,31 @@
       return `<span class="badge badge-${val}">${labels[val] || val}</span>`
     }
 
+    // ─── Count-up animation ─────────────────────────────────
+    function countUp(el, end, fmt, duration, delay) {
+      duration = duration || 900
+      delay    = delay    || 0
+      setTimeout(() => {
+        if (!end) { el.textContent = fmt(0); return }
+        const t0 = performance.now()
+        function frame(now) {
+          const p    = Math.min((now - t0) / duration, 1)
+          const ease = 1 - Math.pow(1 - p, 3)
+          el.textContent = fmt(end * ease)
+          if (p < 1) requestAnimationFrame(frame)
+          else el.textContent = fmt(end)
+        }
+        requestAnimationFrame(frame)
+      }, delay)
+    }
+
     // ─── Main render (currency-sensitive) ──────────────────
     function render() {
       const s = getStats()
-      document.getElementById('stat-total').textContent   = s.totalProjects
-      document.getElementById('stat-active').textContent  = s.activeProjects
-      document.getElementById('stat-billed').textContent  = fmtMoney(s.totalBilled)
-      document.getElementById('stat-pending').textContent = fmtMoney(s.pendingAmount)
+      countUp(document.getElementById('stat-total'),   s.totalProjects,  n => String(Math.round(n)),              750,    0)
+      countUp(document.getElementById('stat-active'),  s.activeProjects, n => String(Math.round(n)),              750,   80)
+      countUp(document.getElementById('stat-billed'),  s.totalBilled,    n => fmtMoneyIn(Math.round(n), 'JPY'),  1000,  120)
+      countUp(document.getElementById('stat-pending'), s.pendingAmount,  n => fmtMoneyIn(Math.round(n), 'JPY'),  1000,  180)
 
       // ── Overdue alert ──────────────────────────────────
       const overdue    = getOverdueInvoices()
@@ -301,10 +319,10 @@
       const reached     = current >= goal
       const behind      = pct < 30
 
-      document.getElementById('obj-current').textContent = fmtMoneyIn(current, 'JPY')
-      document.getElementById('obj-goal').textContent    = fmtMoneyIn(goal, 'JPY')
-      document.getElementById('obj-pct').textContent     = `${pct}%`
-      document.getElementById('obj-pct').className       =
+      countUp(document.getElementById('obj-current'), current, n => fmtMoneyIn(Math.round(n), 'JPY'), 1100, 200)
+      document.getElementById('obj-goal').textContent = fmtMoneyIn(goal, 'JPY')
+      countUp(document.getElementById('obj-pct'), pct, n => `${Math.round(n)}%`, 1100, 200)
+      document.getElementById('obj-pct').className =
         'objectif-pct ' + (reached ? 'reached' : behind ? 'behind' : 'on-track')
 
       const pendingLine = document.getElementById('obj-pending-line')
@@ -315,11 +333,14 @@
       }
 
       const bar = document.getElementById('obj-bar')
-      bar.style.width = Math.min(pct, 100) + '%'
       bar.className   = 'progress-fill ' + (reached ? 'reached' : behind ? 'behind' : '')
-
+      bar.style.width = '0%'
       const barPending = document.getElementById('obj-bar-pending')
-      barPending.style.width = pctWith + '%'
+      barPending.style.width = '0%'
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        bar.style.width        = Math.min(pct, 100) + '%'
+        barPending.style.width = pctWith + '%'
+      }))
 
       const remaining = document.getElementById('obj-remaining')
       if (reached) {
@@ -339,16 +360,16 @@
       const annual  = getAnnualStats()
       const taxAmt  = Math.round(annual.revenue * taxPct / 100)
 
-      document.getElementById('fin-revenue').textContent  = fmtMoneyIn(rev, 'JPY')
-      document.getElementById('fin-pending').textContent  = fmtMoneyIn(pend, 'JPY')
-      document.getElementById('fin-expenses').textContent = fmtMoney(exp)
+      countUp(document.getElementById('fin-revenue'),  rev,    n => fmtMoneyIn(Math.round(n), 'JPY'), 1000, 280)
+      countUp(document.getElementById('fin-pending'),  pend,   n => fmtMoneyIn(Math.round(n), 'JPY'), 1000, 340)
+      countUp(document.getElementById('fin-expenses'), exp,    n => fmtMoneyIn(Math.round(n), 'JPY'), 1000, 400)
       document.getElementById('tax-pct-label').textContent = `(${taxPct}%)`
 
       const netEl = document.getElementById('fin-net')
-      netEl.textContent = fmtMoney(net)
-      netEl.className   = 'fin-card-value ' + (net >= 0 ? 'positive' : 'negative')
+      netEl.className = 'fin-card-value ' + (net >= 0 ? 'positive' : 'negative')
+      countUp(netEl, Math.abs(net), n => (net < 0 ? '-' : '') + fmtMoneyIn(Math.round(n), 'JPY'), 1000, 460)
 
-      document.getElementById('fin-tax').textContent = fmtMoney(taxAmt)
+      countUp(document.getElementById('fin-tax'), taxAmt, n => fmtMoneyIn(Math.round(n), 'JPY'), 1000, 520)
 
       // ── Upcoming events ────────────────────────────────
       const events   = getUpcomingEvents(30)
@@ -379,23 +400,30 @@
       const nowKey  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
       const sixTotalPaid    = months.reduce((t, m) => t + m.amount, 0)
       const sixTotalPending = months.reduce((t, m) => t + m.pendingAmount, 0)
-      document.getElementById('chart-total').textContent         = fmtMoneyIn(sixTotalPaid, 'JPY')
-      document.getElementById('chart-pending-total').textContent = fmtMoneyIn(sixTotalPending, 'JPY')
-      document.getElementById('revenue-chart').innerHTML = months.map(m => {
-        const total      = m.amount + m.pendingAmount
-        const stackH     = Math.round((total / maxAmt) * 100)
-        const paidH      = total > 0 ? Math.round((m.amount / total) * 100) : 0
-        const pendingH   = 100 - paidH
-        const isCurrent  = m.key === nowKey
+      countUp(document.getElementById('chart-total'),         sixTotalPaid,    n => fmtMoneyIn(Math.round(n), 'JPY'), 1100, 360)
+      countUp(document.getElementById('chart-pending-total'), sixTotalPending, n => fmtMoneyIn(Math.round(n), 'JPY'), 1100, 420)
+      const chartData = months.map(m => {
+        const total    = m.amount + m.pendingAmount
+        const stackH   = Math.round((total / maxAmt) * 100)
+        const paidH    = total > 0 ? Math.round((m.amount / total) * 100) : 0
+        const pendingH = 100 - paidH
         const tip = `Collected: ${fmtMoneyIn(m.amount,'JPY')} · Pending: ${fmtMoneyIn(m.pendingAmount,'JPY')}`
-        return `<div class="bar-col" title="${tip}">
-          <div class="bar-stack" style="height:${stackH}%;${isCurrent ? 'opacity:1' : ''}">
-            <div class="bar-seg bar-seg-pending" style="height:${pendingH}%"></div>
-            <div class="bar-seg bar-seg-paid"    style="height:${paidH}%"></div>
+        return { stackH, paidH, pendingH, label: m.label, tip, isCurrent: m.key === nowKey }
+      })
+      document.getElementById('revenue-chart').innerHTML = chartData.map((m, idx) =>
+        `<div class="bar-col" title="${m.tip}">
+          <div class="bar-stack" data-h="${m.stackH}" style="height:0%">
+            <div class="bar-seg bar-seg-pending" style="height:${m.pendingH}%"></div>
+            <div class="bar-seg bar-seg-paid"    style="height:${m.paidH}%"></div>
           </div>
-          <div class="bar-label${isCurrent ? '' : ''}">${m.label}</div>
+          <div class="bar-label">${m.label}</div>
         </div>`
-      }).join('')
+      ).join('')
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.querySelectorAll('#revenue-chart .bar-stack[data-h]').forEach((el, i) => {
+          setTimeout(() => { el.style.height = el.dataset.h + '%' }, i * 60)
+        })
+      }))
 
       // ── Recent invoices ────────────────────────────────
       const invoices = getInvoices().slice(0, 6)
