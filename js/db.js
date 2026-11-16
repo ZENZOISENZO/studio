@@ -932,3 +932,17 @@ initDB()
   ).join('')
   document.addEventListener('DOMContentLoaded', () => document.body.appendChild(nav))
 })()
+
+// ── Voice assistant (mobile) ──────────────────────────────────
+;(function () {
+  function injectVoice() {
+    var s = document.createElement('script')
+    s.src = 'js/voice.js'
+    document.body.appendChild(s)
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectVoice)
+  } else {
+    injectVoice()
+  }
+})()
